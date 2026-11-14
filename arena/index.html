@@ -98,16 +98,50 @@
     const $ = (id) => document.getElementById(id);
     const API = "https://openrouter.ai/api/v1/chat/completions";
 
-    const BOTS = [
-      { id: "deepseek/deepseek-chat-v3-0324:free", name: "DeepSeek", color: "#4d6bfe", desc: "Direto e inteligente, resolve problema na moral" },
-      { id: "mistralai/mistral-small-3.2-24b-instruct:free", name: "Mistral", color: "#ff7000", desc: "Descontraído, brincalhão e rápido" },
-      { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama", color: "#0866ff", desc: "Amigável e equilibrado, faz perguntas" },
-      { id: "qwen/qwen3-235b-a22b:free", name: "Qwen", color: "#6f4fd8", desc: "Curiosa, adora detalhes e fatos" },
-      { id: "google/gemma-3-27b-it:free", name: "Gemma", color: "#1a9e4b", desc: "Calma e gentil, sempre ajuda" },
+    const PALETTE = ["#4d6bfe", "#ff7000", "#0866ff", "#6f4fd8", "#1a9e4b", "#e11d48", "#d97706", "#0d9488"];
+    const DESCS = [
+      [/deepseek/i, "Direto e inteligente, resolve problema na moral"],
+      [/ernie/i, "Direta e objetiva, vai ao ponto"],
+      [/mistral/i, "Descontraído, brincalhão e rápido"],
+      [/llama/i, "Amigável e equilibrado, faz perguntas"],
+      [/qwen/i, "Curioso, adora detalhes e fatos"],
+      [/gemma/i, "Calmo e gentil, sempre ajuda"],
+      [/nemotron/i, "Técnico e direto"],
+      [/ling/i, "Rápido, contexto gigante"],
+    ];
+    let BOTS = [
+      { id: "inclusionai/ling-3.2-flash:free", name: "Ling 3.2 Flash", color: "#4d6bfe", desc: "Rápido, contexto gigante" },
+      { id: "baidu/ernie-5.5-flash-preview:free", name: "ERNIE 5.5 Flash", color: "#ff7000", desc: "Direta e objetiva, vai ao ponto" },
     ];
 
+    async function loadFreeModels() {
+      try {
+        const r = await fetch("https://openrouter.ai/api/v1/models");
+        const j = await r.json();
+        const bad = /embed|rerank|whisper|tts|voice|decider|recraft|omni|video/i;
+        const free = (j.data || []).filter((m) =>
+          m.id.endsWith(":free") && m.pricing?.prompt === "0" &&
+          (m.architecture?.output_modalities || []).includes("text") && !bad.test(m.id)
+        );
+        if (!free.length) return;
+        const prio = [/deepseek/i, /ernie/i, /ling/i, /mistral/i, /llama/i, /qwen/i, /gemma/i, /nemotron/i, /inkling/i, /particle/i, /flint/i];
+        free.sort((a, b) => {
+          const pa = prio.findIndex((p) => p.test(a.id)), pb = prio.findIndex((p) => p.test(b.id));
+          return (pa === -1 ? 99 : pa) - (pb === -1 ? 99 : pb);
+        });
+        BOTS = free.slice(0, 8).map((m, i) => {
+          const short = m.name.replace(/\s*\(free\)\s*$/i, "");
+          const hit = DESCS.find(([re]) => re.test(m.id));
+          return { id: m.id, name: short, color: PALETTE[i % PALETTE.length], desc: hit ? hit[1] : "Equilibrado, boa pra conversa" };
+        });
+        selected = selected.filter((id) => BOTS.some((b) => b.id === id));
+        if (selected.length < 2) selected = BOTS.slice(0, 2).map((b) => b.id);
+        localStorage.setItem("arena-bots", JSON.stringify(selected));
+      } catch {}
+    }
+
     let history = [];
-    let selected = JSON.parse(localStorage.getItem("arena-bots") || '["deepseek/deepseek-chat-v3-0324:free","mistralai/mistral-small-3.2-24b-instruct:free"]');
+    let selected = JSON.parse(localStorage.getItem("arena-bots") || '["inclusionai/ling-3.2-flash:free","baidu/ernie-5.5-flash-preview:free"]');
     let busy = false, stopFlag = false;
 
     function getKey() { return localStorage.getItem("openrouter-key"); }
@@ -273,7 +307,8 @@
       runTurns(selected.map((id) => BOTS.find((b) => b.id === id)?.name).filter(Boolean));
     };
 
-    if (getKey()) { renderBotList(); }
+    renderBotList();
+    loadFreeModels().then(renderBotList);
     load();
   </script>
 </body>
