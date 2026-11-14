@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1DB954" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <title>Meu Player</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, sans-serif;
+      background: #121212; color: #fff; height: 100dvh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; background: linear-gradient(#1f2b22, #121212);
+    }
+    header h1 { font-size: 20px; margin: 0; }
+    #addBtn {
+      background: #1DB954; color: #fff; border: 0; border-radius: 20px;
+      padding: 10px 16px; font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    #list { flex: 1; overflow-y: auto; padding: 4px 12px 12px; }
+    .track {
+      display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+      border-radius: 8px; cursor: pointer;
+    }
+    .track:active, .track.playing { background: #1f1f1f; }
+    .track.playing .t-title { color: #1DB954; }
+    .track img, .track .ph {
+      width: 46px; height: 46px; border-radius: 6px; object-fit: cover; flex: none;
+      background: #282828; display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: #888;
+    }
+    .t-info { flex: 1; min-width: 0; }
+    .t-title { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .t-artist { font-size: 12px; color: #a7a7a7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .t-dur { font-size: 12px; color: #a7a7a7; flex: none; }
+    .t-del {
+      border: 0; background: none; color: #888; font-size: 18px; padding: 6px; cursor: pointer; flex: none;
+    }
+    #empty { text-align: center; color: #a7a7a7; padding: 60px 30px; line-height: 1.6; }
+    #bar {
+      background: #181818; border-top: 1px solid #282828;
+      padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    }
+    #bar-top { display: flex; align-items: center; gap: 12px; }
+    #np-art {
+      width: 48px; height: 48px; border-radius: 6px; object-fit: cover; background: #282828; flex: none;
+    }
+    #np-info { flex: 1; min-width: 0; }
+    #np-title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #np-artist { font-size: 12px; color: #a7a7a7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ctl {
+      border: 0; background: none; color: #fff; font-size: 22px; cursor: pointer; padding: 8px; flex: none;
+    }
+    .ctl.off { color: #666; }
+    #playBtn {
+      width: 46px; height: 46px; border-radius: 50%; border: 0; background: #fff; color: #000;
+      font-size: 20px; cursor: pointer; flex: none;
+    }
+    #seek-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+    #seek { flex: 1; accent-color: #1DB954; height: 4px; }
+    .time { font-size: 11px; color: #a7a7a7; min-width: 34px; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎵 Meu Player</h1>
+    <button id="addBtn">＋ Músicas</button>
+    <input id="fileInput" type="file" accept="audio/*" multiple hidden />
+  </header>
+  <div id="list"><div id="empty">Sua biblioteca está vazia.<br />Toque em <b>＋ Músicas</b> e escolha os MP3s do celular.<br />Eles ficam salvos aqui.</div></div>
+  <div id="bar">
+    <div id="bar-top">
+      <img id="np-art" alt="" hidden />
+      <div id="np-info"><div id="np-title">Nada tocando</div><div id="np-artist"></div></div>
+      <button class="ctl" id="shuffleBtn" title="Aleatório">🔀</button>
+      <button class="ctl" id="prevBtn" title="Anterior">⏮</button>
+      <button id="playBtn" title="Tocar">▶</button>
+      <button class="ctl" id="nextBtn" title="Próxima">⏭</button>
+      <button class="ctl off" id="repeatBtn" title="Repetir">🔁</button>
+    </div>
+    <div id="seek-row">
+      <span class="time" id="curTime">0:00</span>
+      <input id="seek" type="range" min="0" max="1000" value="0" />
+      <span class="time" id="totTime">0:00</span>
+    </div>
+  </div>
+  <script>
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+    const $ = (id) => document.getElementById(id);
+    const DB = "meu-player", STORE = "tracks";
+    let db, tracks = [], current = -1;
+    let shuffle = false, repeat = 0;
+    const audio = new Audio();
+    let objectUrl = null;
+
+    function openDB() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open(DB, 1);
+        r.onupgradeneeded = () => r.result.createObjectStore(STORE, { keyPath: "id" });
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+    }
+    const tx = (mode, fn) => new Promise((res, rej) => {
+      const t = db.transaction(STORE, mode);
+      const out = fn(t.objectStore(STORE));
+      t.oncomplete = () => res(out && out.result);
+      t.onerror = () => rej(t.error);
+    });
+    const idbAll = () => tx("readonly", (s) => s.getAll());
+    const idbPut = (rec) => tx("readwrite", (s) => s.put(rec));
+    const idbDel = (id) => tx("readwrite", (s) => s.delete(id));
+
+    function fmt(s) {
+      if (!isFinite(s)) return "0:00";
+      const m = Math.floor(s / 60), ss = Math.floor(s % 60);
+      return m + ":" + String(ss).padStart(2, "0");
+    }
+
+    function decodeText(d) {
+      const enc = d[0];
+      const body = d.subarray(1);
+      let label = "utf-8";
+      if (enc === 0) label = "latin1";
+      else if (enc === 1) label = "utf-16";
+      else if (enc === 2) label = "utf-16be";
+      let text = new TextDecoder(label).decode(body);
+      return text.replace(/\0+$/g, "").replace(/^\uFEFF/, "").trim();
+    }
+
+    function parseApic(d) {
+      try {
+        const enc = d[0];
+        let i = 1;
+        while (i < d.length && d[i] !== 0) i++;
+        const mime = String.fromCharCode.apply(null, d.subarray(1, i)) || "image/jpeg";
+        i++;
+        i++;
+        if (enc === 1 || enc === 2) {
+          while (i + 1 < d.length && !(d[i] === 0 && d[i + 1] === 0)) i += 2;
+          i += 2;
+        } else {
+          while (i < d.length && d[i] !== 0) i++;
+          i++;
+        }
+        if (i >= d.length) return null;
+        return new Blob([d.subarray(i)], { type: mime });
+      } catch { return null; }
+    }
+
+    async function parseTags(file) {
+      try {
+        const head = new Uint8Array(await file.slice(0, 10).arrayBuffer());
+        if (head[0] !== 0x49 || head[1] !== 0x44 || head[2] !== 0x33) return {};
+        const ver = head[3];
+        const size = ((head[6] & 0x7f) << 21) | ((head[7] & 0x7f) << 14) | ((head[8] & 0x7f) << 7) | (head[9] & 0x7f);
+        const buf = new Uint8Array(await file.slice(10, 10 + Math.min(size, 3 * 1024 * 1024)).arrayBuffer());
+        const out = {};
+        let p = 0;
+        while (p + 10 <= buf.length) {
+          const id = String.fromCharCode(buf[p], buf[p + 1], buf[p + 2], buf[p + 3]);
+          if (!/^[A-Z0-9]{4}$/.test(id)) break;
+          let fsize;
+          if (ver >= 4) fsize = ((buf[p + 4] & 0x7f) << 21) | ((buf[p + 5] & 0x7f) << 14) | ((buf[p + 6] & 0x7f) << 7) | (buf[p + 7] & 0x7f);
+          else fsize = (buf[p + 4] << 24) | (buf[p + 5] << 16) | (buf[p + 6] << 8) | buf[p + 7];
+          if (fsize <= 0 || p + 10 + fsize > buf.length) break;
+          const data = buf.subarray(p + 10, p + 10 + fsize);
+          if (id === "TIT2") out.title = decodeText(data);
+          else if (id === "TPE1") out.artist = decodeText(data);
+          else if (id === "TALB") out.album = decodeText(data);
+          else if (id === "APIC" && !out.art) out.art = parseApic(data);
+          p += 10 + fsize;
+        }
+        return out;
+      } catch { return {}; }
+    }
+
+    function probeDuration(blob) {
+      return new Promise((res) => {
+        const a = new Audio();
+        const u = URL.createObjectURL(blob);
+        a.preload = "metadata";
+        a.onloadedmetadata = () => { URL.revokeObjectURL(u); res(a.duration || 0); };
+        a.onerror = () => { URL.revokeObjectURL(u); res(0); };
+        a.src = u;
+      });
+    }
+
+    function cleanName(name) {
+      return name.replace(/\.[^.]+$/, "").replace(/_/g, " ").trim();
+    }
+
+    async function addFiles(files) {
+      for (const file of files) {
+        if (!file.type.startsWith("audio") && !/\.(mp3|m4a|ogg|wav|flac|aac|opus)$/i.test(file.name)) continue;
+        const tags = await parseTags(file);
+        const rec = {
+          id: crypto.randomUUID(),
+          name: file.name,
+          blob: file,
+          title: tags.title || cleanName(file.name),
+          artist: tags.artist || "Artista desconhecido",
+          album: tags.album || "",
+          art: tags.art || null,
+          duration: await probeDuration(file),
+        };
+        await idbPut(rec);
+        tracks.push(rec);
+        render();
+      }
+    }
+
+    function render() {
+      const list = $("list");
+      list.innerHTML = "";
+      if (tracks.length === 0) {
+        list.innerHTML = '<div id="empty">Sua biblioteca está vazia.<br />Toque em <b>＋ Músicas</b> e escolha os MP3s do celular.<br />Eles ficam salvos aqui.</div>';
+        return;
+      }
+      tracks.forEach((t, i) => {
+        const row = document.createElement("div");
+        row.className = "track" + (i === current ? " playing" : "");
+        const thumb = t.art ? Object.assign(document.createElement("img"), { src: URL.createObjectURL(t.art), alt: "" })
+                            : Object.assign(document.createElement("div"), { className: "ph", textContent: "♪" });
+        const info = document.createElement("div");
+        info.className = "t-info";
+        info.innerHTML = '<div class="t-title"></div><div class="t-artist"></div>';
+        info.querySelector(".t-title").textContent = t.title;
+        info.querySelector(".t-artist").textContent = t.artist;
+        const dur = document.createElement("span");
+        dur.className = "t-dur";
+        dur.textContent = fmt(t.duration);
+        const del = document.createElement("button");
+        del.className = "t-del";
+        del.textContent = "✕";
+        del.onclick = (e) => { e.stopPropagation(); removeTrack(i); };
+        row.append(thumb, info, dur, del);
+        row.onclick = () => playIndex(i);
+        list.appendChild(row);
+      });
+    }
+
+    async function removeTrack(i) {
+      const t = tracks[i];
+      if (i === current) { audio.pause(); audio.removeAttribute("src"); current = -1; updateBar(); }
+      await idbDel(t.id);
+      tracks.splice(i, 1);
+      if (i < current) current--;
+      render();
+    }
+
+    function updateBar() {
+      const t = tracks[current];
+      if (!t) {
+        $("np-title").textContent = "Nada tocando";
+        $("np-artist").textContent = "";
+        $("np-art").hidden = true;
+        $("playBtn").textContent = "▶";
+        return;
+      }
+      $("np-title").textContent = t.title;
+      $("np-artist").textContent = t.artist;
+      const art = $("np-art");
+      if (t.art) { art.src = URL.createObjectURL(t.art); art.hidden = false; }
+      else art.hidden = true;
+      $("playBtn").textContent = audio.paused ? "▶" : "⏸";
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: t.title, artist: t.artist, album: t.album || "Meu Player",
+          artwork: t.art ? [{ src: URL.createObjectURL(t.art) }] : [],
+        });
+      }
+    }
+
+    function playIndex(i) {
+      if (i < 0 || i >= tracks.length) return;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      current = i;
+      const t = tracks[i];
+      objectUrl = URL.createObjectURL(t.blob);
+      audio.src = objectUrl;
+      audio.play();
+      updateBar();
+      render();
+    }
+
+    function nextIndex(dir) {
+      const n = tracks.length;
+      if (n === 0) return -1;
+      if (shuffle && n > 1) {
+        let r;
+        do { r = Math.floor(Math.random() * n); } while (r === current);
+        return r;
+      }
+      return (current + dir + n) % n;
+    }
+
+    $("addBtn").onclick = () => $("fileInput").click();
+    $("fileInput").onchange = (e) => { addFiles([...e.target.files]); e.target.value = ""; };
+    $("playBtn").onclick = () => {
+      if (current === -1) { if (tracks.length) playIndex(0); return; }
+      audio.paused ? audio.play() : audio.pause();
+      updateBar();
+    };
+    $("nextBtn").onclick = () => playIndex(nextIndex(1));
+    $("prevBtn").onclick = () => {
+      if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+      playIndex(nextIndex(-1));
+    };
+    $("shuffleBtn").onclick = () => {
+      shuffle = !shuffle;
+      $("shuffleBtn").classList.toggle("off", !shuffle);
+    };
+    $("repeatBtn").onclick = () => {
+      repeat = (repeat + 1) % 3;
+      $("repeatBtn").classList.toggle("off", repeat === 0);
+      $("repeatBtn").textContent = repeat === 2 ? "🔂" : "🔁";
+    };
+    $("seek").oninput = (e) => {
+      if (isFinite(audio.duration)) audio.currentTime = (e.target.value / 1000) * audio.duration;
+    };
+    audio.ontimeupdate = () => {
+      if (!isFinite(audio.duration)) return;
+      $("seek").value = Math.floor((audio.currentTime / audio.duration) * 1000);
+      $("curTime").textContent = fmt(audio.currentTime);
+      $("totTime").textContent = fmt(audio.duration);
+    };
+    audio.onplay = () => { $("playBtn").textContent = "⏸"; };
+    audio.onpause = () => { $("playBtn").textContent = "▶"; };
+    audio.onended = () => {
+      if (repeat === 2) { audio.currentTime = 0; audio.play(); return; }
+      const n = nextIndex(1);
+      if (repeat === 0 && !shuffle && current === tracks.length - 1) { audio.currentTime = 0; $("playBtn").textContent = "▶"; return; }
+      playIndex(n);
+    };
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.setActionHandler("play", () => audio.play());
+      navigator.mediaSession.setActionHandler("pause", () => audio.pause());
+      navigator.mediaSession.setActionHandler("previoustrack", () => playIndex(nextIndex(-1)));
+      navigator.mediaSession.setActionHandler("nexttrack", () => playIndex(nextIndex(1)));
+    }
+
+    openDB().then(async (d) => {
+      db = d;
+      tracks = await idbAll();
+      render();
+    });
+  </script>
+</body>
+</html>
