@@ -1,6 +1,6 @@
 {
-  "name": "Meu Chat IA",
-  "short_name": "Chat IA",
+  "name": "Mano IA",
+  "short_name": "Mano IA",
   "description": "Chat de IA com a Mistral, com sua própria chave",
   "start_url": "./",
   "scope": "./",
