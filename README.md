@@ -2,6 +2,7 @@
 
 - **[🎵 Meu Player](player/)** — player de música estilo Spotify para os seus próprios arquivos (funciona no celular, instalável via GitHub Pages).
 - **[🤖 Mano IA](chat-pwa/)** — chat com a IA da Mistral, instalável no celular (você usa a sua própria chave da API, salva só no seu aparelho).
+- **[🥗 FitBot IA](fitbot/)** — chat de dieta com IA: manda receitas com o que você tem em casa e conta as calorias do dia (mesma chave do Mano IA, salva só no aparelho).
 - **[💻 Chat Mistral servidor](public/)** — chat com a API da Mistral (precisa rodar localmente com Node.js).
 
 ---
