@@ -2,11 +2,15 @@
 
 Player de música estilo Spotify que roda no navegador do celular ou PC — e pode ser **instalado como app** na tela inicial. Ele toca **os seus próprios arquivos de música** (MP3, M4A, OGG, WAV, FLAC), sem anúncios, sem assinatura, sem internet depois de carregado.
 
-## Funcões
+## Funções
 
 - Lista de músicas com capa, artista e duração (lê as tags ID3 dos MP3s)
+- **Toca a próxima música automaticamente** quando uma acaba (não precisa apertar nada)
+- **Pastas (playlists)**: crie pastas tipo "Sertanejo", "Funk" e organize suas músicas (botão 📚)
+- **Equalizador** com Baixo, Médio e Agudo (botão 🎚️) — ótimo para caixa de som; as configurações ficam salvas
 - Play/pause, próxima/anterior, barra de progresso, tempo
 - Aleatório (🔀) e repetir (🔁 / 🔂)
+- Adicione mais músicas a qualquer momento (botão ＋ Músicas)
 - Músicas ficam **salvas no aparelho** (IndexedDB) — adiciona uma vez só
 - Controles na tela de bloqueio (Media Session)
 - Instalável como app (PWA)
