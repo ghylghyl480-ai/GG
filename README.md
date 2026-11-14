@@ -1,7 +1,8 @@
 # Meus apps
 
 - **[🎵 Meu Player](player/)** — player de música estilo Spotify para os seus próprios arquivos (funciona no celular, instalável via GitHub Pages).
-- **[🤖 Meu Chat IA](chat-pwa/)** — chat com a IA da Mistral, instalável no celular (você usa a sua própria chave da API, salva só no seu aparelho).
+- **[🤖 Mano IA](chat-pwa/)** — chat com a IA da Mistral, instalável no celular (você usa a sua própria chave da API, salva só no seu aparelho).
+- **[🥗 FitBot IA](fitbot/)** — chat de dieta com IA: manda receitas com o que você tem em casa e conta as calorias do dia (mesma chave do Mano IA, salva só no aparelho).
 - **[💻 Chat Mistral servidor](public/)** — chat com a API da Mistral (precisa rodar localmente com Node.js).
 
 ---
@@ -40,7 +41,7 @@ Opcional: copie `.env.example` para `.env` e use `node --env-file=.env server.js
 
 ---
 
-## 🤖 Meu Chat IA (pasta `chat-pwa/`)
+## 🤖 Mano IA (pasta `chat-pwa/`)
 
 PWA de chat com `mistral-small-latest` que roda inteiramente no navegador: a chave da API é colada pelo usuário e salva apenas no `localStorage` do aparelho (nunca vai para nenhum servidor). Respostas em streaming, histórico salvo, instalável na tela inicial. Acesse `/chat-pwa/` no Pages.
 
