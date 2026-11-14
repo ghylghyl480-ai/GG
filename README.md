@@ -1,7 +1,8 @@
 # Meus apps
 
 - **[🎵 Meu Player](player/)** — player de música estilo Spotify para os seus próprios arquivos (funciona no celular, instalável via GitHub Pages).
-- **[🤖 Chat Mistral](public/)** — chat com a API da Mistral (precisa rodar localmente com Node.js).
+- **[🤖 Meu Chat IA](chat-pwa/)** — chat com a IA da Mistral, instalável no celular (você usa a sua própria chave da API, salva só no seu aparelho).
+- **[💻 Chat Mistral servidor](public/)** — chat com a API da Mistral (precisa rodar localmente com Node.js).
 
 ---
 
@@ -38,6 +39,10 @@ npm run dev
 Opcional: copie `.env.example` para `.env` e use `node --env-file=.env server.js` para carregar a chave de um arquivo (não versione o `.env`).
 
 ---
+
+## 🤖 Meu Chat IA (pasta `chat-pwa/`)
+
+PWA de chat com `mistral-small-latest` que roda inteiramente no navegador: a chave da API é colada pelo usuário e salva apenas no `localStorage` do aparelho (nunca vai para nenhum servidor). Respostas em streaming, histórico salvo, instalável na tela inicial. Acesse `/chat-pwa/` no Pages.
 
 ## 🎵 Player de música (pasta `player/`)
 
