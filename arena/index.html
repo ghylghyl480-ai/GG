@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#7c3aed" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <title>Arena IA</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, sans-serif;
+      background: #0d0b14; color: #ece9f5; height: 100dvh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    header {
+      display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+      background: linear-gradient(#221539, #0d0b14); border-bottom: 1px solid #2a2140;
+    }
+    header h1 { font-size: 18px; margin: 0; flex: 1; }
+    header button { background: none; border: 0; color: #b79aec; font-size: 17px; cursor: pointer; padding: 6px; }
+    #setup {
+      display: none; flex: 1; overflow-y: auto; padding: 28px 22px; text-align: center;
+    }
+    #setup.show { display: block; }
+    #setup h2 { margin: 0 0 8px; font-size: 22px; }
+    #setup p { color: #b79aec; font-size: 13.5px; line-height: 1.6; margin: 0 0 16px; }
+    #setup a { color: #a78bfa; }
+    #keyInput {
+      width: 100%; padding: 13px; border-radius: 10px; border: 1px solid #2a2140;
+      background: #171225; color: #fff; font-size: 15px; margin-bottom: 10px;
+    }
+    #saveKey {
+      width: 100%; padding: 13px; border: 0; border-radius: 10px; background: #7c3aed;
+      color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 22px;
+    }
+    .bot-pick {
+      display: flex; align-items: center; gap: 12px; text-align: left;
+      background: #171225; border: 1px solid #2a2140; border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 8px; cursor: pointer;
+    }
+    .bot-pick.on { border-color: #7c3aed; background: #1e1533; }
+    .bot-pick input { width: 18px; height: 18px; accent-color: #7c3aed; flex: none; }
+    .bp-name { font-weight: 700; font-size: 15px; }
+    .bp-desc { font-size: 12px; color: #8d84a8; }
+    #startChat {
+      width: 100%; padding: 14px; margin-top: 14px; border: 0; border-radius: 10px;
+      background: #7c3aed; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+    #chat { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 88%; padding: 9px 13px; border-radius: 13px; white-space: pre-wrap; line-height: 1.5; font-size: 14px; border-left: 3px solid #555; }
+    .msg .who { display: block; font-size: 11px; font-weight: 700; margin-bottom: 3px; opacity: 0.9; }
+    .msg.user { align-self: flex-end; background: #7c3aed; color: #fff; border-left-color: #7c3aed; border-radius: 13px 13px 4px 13px; }
+    .msg.bot { align-self: flex-start; background: #171225; border-bottom-left-radius: 4px; }
+    .msg.bot.typing { color: #888; font-style: italic; }
+    .msg.bot.error { background: #3a1c24; color: #ff9aa8; }
+    #talkRow { display: flex; justify-content: center; padding: 0 14px 4px; }
+    #talkBtn {
+      border: 1px solid #7c3aed; background: none; color: #b79aec; border-radius: 18px;
+      padding: 7px 14px; font-size: 12.5px; cursor: pointer;
+    }
+    form { display: flex; gap: 8px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid #2a2140; }
+    input#input {
+      flex: 1; padding: 13px; border-radius: 22px; border: 1px solid #2a2140;
+      background: #171225; color: #ece9f5; font-size: 15px;
+    }
+    button#send {
+      width: 46px; height: 46px; border-radius: 50%; border: 0; background: #7c3aed;
+      color: #fff; font-size: 18px; cursor: pointer; flex: none;
+    }
+    button#send:disabled { opacity: 0.5; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚔️ Arena IA</h1>
+    <button id="cfgBtn" title="Configurar">⚙️</button>
+    <button id="clearBtn" title="Limpar conversa">🗑</button>
+  </header>
+  <div id="setup" class="show">
+    <h2>⚔️ Arena IA</h2>
+    <p>Várias IAs conversando juntas num grupo — e todas lembram de tudo.<br />
+    Para funcionar: crie uma conta grátis em <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a> → Keys → Create Key, e cole abaixo.</p>
+    <input id="keyInput" type="password" placeholder="Cole sua chave OpenRouter (sk-or-...)" />
+    <button id="saveKey">Salvar chave</button>
+    <div id="botList"></div>
+    <button id="startChat">Entrar na arena 🚀</button>
+  </div>
+  <div id="chat"></div>
+  <div id="talkRow"><button id="talkBtn">🗣️ Deixa elas conversarem</button></div>
+  <form id="form">
+    <input id="input" placeholder="Fale com a galera da arena..." autocomplete="off" />
+    <button id="send">➤</button>
+  </form>
+  <script>
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+    const $ = (id) => document.getElementById(id);
+    const API = "https://openrouter.ai/api/v1/chat/completions";
+
+    const PALETTE = ["#4d6bfe", "#ff7000", "#0866ff", "#6f4fd8", "#1a9e4b", "#e11d48", "#d97706", "#0d9488"];
+    const DESCS = [
+      [/deepseek/i, "Direto e inteligente, resolve problema na moral"],
+      [/ernie/i, "Direta e objetiva, vai ao ponto"],
+      [/mistral/i, "Descontraído, brincalhão e rápido"],
+      [/llama/i, "Amigável e equilibrado, faz perguntas"],
+      [/qwen/i, "Curioso, adora detalhes e fatos"],
+      [/gemma/i, "Calmo e gentil, sempre ajuda"],
+      [/nemotron/i, "Técnico e direto"],
+      [/ling/i, "Rápido, contexto gigante"],
+    ];
+    let BOTS = [
+      { id: "inclusionai/ling-3.2-flash:free", name: "Ling 3.2 Flash", color: "#4d6bfe", desc: "Rápido, contexto gigante" },
+      { id: "baidu/ernie-5.5-flash-preview:free", name: "ERNIE 5.5 Flash", color: "#ff7000", desc: "Direta e objetiva, vai ao ponto" },
+    ];
+
+    async function loadFreeModels() {
+      try {
+        const r = await fetch("https://openrouter.ai/api/v1/models");
+        const j = await r.json();
+        const bad = /embed|rerank|whisper|tts|voice|decider|recraft|omni|video/i;
+        const free = (j.data || []).filter((m) =>
+          m.id.endsWith(":free") && m.pricing?.prompt === "0" &&
+          (m.architecture?.output_modalities || []).includes("text") && !bad.test(m.id)
+        );
+        if (!free.length) return;
+        const prio = [/deepseek/i, /ernie/i, /ling/i, /mistral/i, /llama/i, /qwen/i, /gemma/i, /nemotron/i, /inkling/i, /particle/i, /flint/i];
+        free.sort((a, b) => {
+          const pa = prio.findIndex((p) => p.test(a.id)), pb = prio.findIndex((p) => p.test(b.id));
+          return (pa === -1 ? 99 : pa) - (pb === -1 ? 99 : pb);
+        });
+        BOTS = free.slice(0, 8).map((m, i) => {
+          const short = m.name.replace(/\s*\(free\)\s*$/i, "");
+          const hit = DESCS.find(([re]) => re.test(m.id));
+          return { id: m.id, name: short, color: PALETTE[i % PALETTE.length], desc: hit ? hit[1] : "Equilibrado, boa pra conversa" };
+        });
+        selected = selected.filter((id) => BOTS.some((b) => b.id === id));
+        if (selected.length < 2) selected = BOTS.slice(0, 2).map((b) => b.id);
+        localStorage.setItem("arena-bots", JSON.stringify(selected));
+      } catch {}
+    }
+
+    let history = [];
+    let selected = JSON.parse(localStorage.getItem("arena-bots") || '["inclusionai/ling-3.2-flash:free","baidu/ernie-5.5-flash-preview:free"]');
+    let busy = false, stopFlag = false;
+
+    function getKey() { return localStorage.getItem("openrouter-key"); }
+
+    function renderBotList() {
+      const box = $("botList");
+      box.innerHTML = "";
+      BOTS.forEach((b) => {
+        const row = document.createElement("label");
+        row.className = "bot-pick" + (selected.includes(b.id) ? " on" : "");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = selected.includes(b.id);
+        cb.onchange = () => {
+          if (cb.checked) { if (selected.length >= 4) { cb.checked = false; alert("Máximo 4 IAs (pra não estourar o limite grátis)."); return; } selected.push(b.id); }
+          else selected = selected.filter((x) => x !== b.id);
+          localStorage.setItem("arena-bots", JSON.stringify(selected));
+          renderBotList();
+        };
+        const info = document.createElement("div");
+        info.innerHTML = '<div class="bp-name" style="color:' + b.color + '">' + b.name + "</div><div class=\"bp-desc\">" + b.desc + "</div>";
+        row.append(cb, info);
+        box.appendChild(row);
+      });
+    }
+
+    function showSetup(show) {
+      $("setup").classList.toggle("show", show);
+      $("chat").style.display = show ? "none" : "flex";
+      $("form").style.display = show ? "none" : "flex";
+      $("talkRow").style.display = show ? "none" : "flex";
+    }
+
+    $("saveKey").onclick = () => {
+      const k = $("keyInput").value.trim();
+      if (!k) return;
+      localStorage.setItem("openrouter-key", k);
+    };
+    $("startChat").onclick = () => {
+      if (!getKey()) { alert("Cola a chave do OpenRouter primeiro!"); return; }
+      if (selected.length < 2) { alert("Escolhe pelo menos 2 IAs!"); return; }
+      showSetup(false);
+    };
+    $("cfgBtn").onclick = () => { $("keyInput").value = getKey() || ""; renderBotList(); showSetup(true); };
+    $("clearBtn").onclick = () => {
+      if (!confirm("Limpar toda a conversa?")) return;
+      history = [];
+      localStorage.removeItem("arena-history");
+      $("chat").innerHTML = "";
+    };
+
+    function addMsg(kind, name, text, color) {
+      const div = document.createElement("div");
+      div.className = "msg " + kind;
+      if (name) {
+        const w = document.createElement("span");
+        w.className = "who";
+        w.style.color = color || "#fff";
+        w.textContent = name;
+        div.appendChild(w);
+      }
+      div.appendChild(document.createTextNode(text));
+      $("chat").appendChild(div);
+      $("chat").scrollTop = $("chat").scrollHeight;
+      return div;
+    }
+
+    function load() {
+      try { history = JSON.parse(localStorage.getItem("arena-history") || "[]"); } catch { history = []; }
+      history.forEach((m) => addMsg(m.kind, m.name, m.content, m.color));
+      if (history.length) $("chat").scrollTop = $("chat").scrollHeight;
+    }
+    function save() { localStorage.setItem("arena-history", JSON.stringify(history.slice(-60))); }
+
+    function messagesFor(botId, botName) {
+      const msgs = [{
+        role: "system",
+        content: "Você é " + botName + ", uma IA num grupo de conversa com outras IAs e um humano. Personalidade: " + BOTS.find((b) => b.id === botId)?.desc + ". REGRAS: responda CURTO (1 a 4 frases, sem textão). Você vê tudo que foi dito antes, inclusive o que as outras IAs falaram — reaja a elas, pode concordar, discordar ou zoar de leve, mencionando o nome delas. Não se apresente toda hora. Fale português brasileiro informal. Se a conversa estiver parada, puxe um assunto novo interessante.",
+      }];
+      for (const m of history) {
+        if (m.kind === "user") msgs.push({ role: "user", content: m.content });
+        else if (m.name === botName) msgs.push({ role: "assistant", content: m.content });
+        else msgs.push({ role: "user", content: "[" + m.name + " disse]: " + m.content });
+      }
+      return msgs;
+    }
+
+    async function callBot(bot, bubble) {
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + getKey() },
+        body: JSON.stringify({ model: bot.id, messages: messagesFor(bot.id, bot.name), stream: true }),
+      });
+      if (res.status === 401) throw new Error("Chave do OpenRouter inválida. Toca no ⚙️ e confere.");
+      if (res.status === 429) throw new Error("Deu limite grátis por agora, espera um pouquinho e tenta de novo. ⏳");
+      if (!res.ok) throw new Error("Erro da API (" + res.status + ").");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "", full = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n");
+        buffer = parts.pop();
+        for (const line of parts) {
+          const t = line.trim();
+          if (!t.startsWith("data:")) continue;
+          const payload = t.slice(5).trim();
+          if (payload === "[DONE]") continue;
+          try {
+            const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
+            if (delta) full += delta;
+          } catch {}
+        }
+        if (full) {
+          bubble.textContent = full;
+          $("chat").scrollTop = $("chat").scrollHeight;
+        }
+      }
+      if (!full) throw new Error("Resposta vazia.");
+      return full;
+    }
+
+    async function runTurns(speakers) {
+      if (busy) return;
+      busy = true; stopFlag = false;
+      $("send").disabled = true;
+      for (const botName of speakers) {
+        if (stopFlag) break;
+        const bot = BOTS.find((b) => b.name === botName);
+        if (!bot || !selected.includes(bot.id)) continue;
+        const bubble = addMsg("bot typing", bot.name, "pensando...", bot.color);
+        try {
+          const full = await callBot(bot, bubble);
+          bubble.classList.remove("typing");
+          history.push({ kind: "bot", name: bot.name, content: full, color: bot.color });
+          save();
+        } catch (err) {
+          bubble.classList.remove("typing");
+          bubble.classList.add("error");
+          bubble.textContent = err.message;
+        }
+      }
+      busy = false;
+      $("send").disabled = false;
+    }
+
+    $("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = $("input").value.trim();
+      if (!text || busy) return;
+      $("input").value = "";
+      addMsg("user", null, text);
+      history.push({ kind: "user", name: null, content: text });
+      save();
+      runTurns(selected.map((id) => BOTS.find((b) => b.id === id)?.name).filter(Boolean));
+    });
+
+    $("talkBtn").onclick = () => {
+      if (busy) return;
+      if (!history.length) { alert("Manda uma mensagem primeiro pra começar o assunto!"); return; }
+      runTurns(selected.map((id) => BOTS.find((b) => b.id === id)?.name).filter(Boolean));
+    };
+
+    renderBotList();
+    loadFreeModels().then(renderBotList);
+    load();
+  </script>
+</body>
+</html>

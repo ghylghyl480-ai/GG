@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ff4f00" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <title>Mano IA</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, sans-serif;
+      background: #0f1117; color: #e9e9ea; height: 100dvh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    header {
+      display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+      background: linear-gradient(#2a1a12, #0f1117); border-bottom: 1px solid #23263a;
+    }
+    header h1 { font-size: 18px; margin: 0; flex: 1; }
+    #keyBtn { background: none; border: 0; color: #ff7a3d; font-size: 18px; cursor: pointer; padding: 6px; }
+    #setup {
+      display: none; flex: 1; flex-direction: column; justify-content: center;
+      padding: 32px 24px; gap: 14px; text-align: center;
+    }
+    #setup h2 { font-size: 22px; margin: 0; }
+    #setup p { color: #a7a7a7; font-size: 14px; line-height: 1.6; margin: 0; }
+    #setup a { color: #ff7a3d; }
+    #keyInput {
+      padding: 14px; border-radius: 10px; border: 1px solid #2c3047;
+      background: #171a26; color: #fff; font-size: 15px; width: 100%;
+    }
+    #saveKey {
+      padding: 14px; border: 0; border-radius: 10px; background: #ff4f00;
+      color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+    #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 82%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; line-height: 1.5; font-size: 15px; }
+    .user { align-self: flex-end; background: #ff4f00; color: #fff; border-bottom-right-radius: 4px; }
+    .assistant { align-self: flex-start; background: #1c1f2e; border-bottom-left-radius: 4px; }
+    .assistant.error { background: #3a1c24; color: #ff9aa8; }
+    .typing { color: #888; font-style: italic; }
+    form { display: flex; gap: 8px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid #23263a; }
+    input#input {
+      flex: 1; padding: 13px; border-radius: 22px; border: 1px solid #2c3047;
+      background: #171a26; color: #e9e9ea; font-size: 15px;
+    }
+    button#send {
+      width: 46px; height: 46px; border-radius: 50%; border: 0; background: #ff4f00;
+      color: #fff; font-size: 18px; cursor: pointer; flex: none;
+    }
+    button#send:disabled { opacity: 0.5; }
+    #clearBtn {
+      background: none; border: 0; color: #888; font-size: 17px; cursor: pointer; padding: 6px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🤖 Mano IA</h1>
+    <button id="clearBtn" title="Limpar conversa">🗑</button>
+    <button id="keyBtn" title="Chave da API">🔑</button>
+  </header>
+  <div id="setup">
+    <h2>Bem-vindo ao Mano IA!</h2>
+    <p>Para o chat funcionar, cole sua chave da API da Mistral.<br />
+    É grátis: crie sua conta em<br /><a href="https://console.mistral.ai" target="_blank" rel="noopener">console.mistral.ai</a><br />
+    → API Keys → Create new key, copie e cole abaixo.</p>
+    <input id="keyInput" type="password" placeholder="Cole sua chave aqui" />
+    <button id="saveKey">Salvar e conversar</button>
+  </div>
+  <div id="chat"></div>
+  <form id="form">
+    <input id="input" placeholder="Digite sua mensagem..." autocomplete="off" />
+    <button id="send">➤</button>
+  </form>
+  <script>
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+    const $ = (id) => document.getElementById(id);
+    const API = "https://api.mistral.ai/v1/chat/completions";
+    const MODEL = "mistral-small-latest";
+    let history = [];
+
+    function load() {
+      try { history = JSON.parse(localStorage.getItem("chat-history") || "[]"); } catch { history = []; }
+      history.forEach((m) => addMsg(m.role, m.content));
+      if (history.length) $("chat").scrollTop = $("chat").scrollHeight;
+    }
+    function save() { localStorage.setItem("chat-history", JSON.stringify(history.slice(-40))); }
+
+    function addMsg(role, text, cls) {
+      const div = document.createElement("div");
+      div.className = "msg " + (cls || role);
+      div.textContent = text;
+      $("chat").appendChild(div);
+      $("chat").scrollTop = $("chat").scrollHeight;
+      return div;
+    }
+
+    function showSetup(show) {
+      $("setup").style.display = show ? "flex" : "none";
+      $("chat").style.display = show ? "none" : "flex";
+      $("form").style.display = show ? "none" : "flex";
+      if (show) $("keyInput").focus();
+    }
+
+    function getKey() { return localStorage.getItem("mistral-key"); }
+
+    $("saveKey").onclick = () => {
+      const k = $("keyInput").value.trim();
+      if (!k) return;
+      localStorage.setItem("mistral-key", k);
+      showSetup(false);
+    };
+    $("keyBtn").onclick = () => {
+      $("keyInput").value = getKey() || "";
+      showSetup(true);
+    };
+    $("clearBtn").onclick = () => {
+      history = [];
+      save();
+      $("chat").innerHTML = "";
+    };
+
+    async function send(text) {
+      const key = getKey();
+      if (!key) { showSetup(true); return; }
+      addMsg("user", text);
+      history.push({ role: "user", content: text });
+      save();
+      $("input").value = "";
+      $("send").disabled = true;
+
+      const bubble = addMsg("assistant", "digitando...", "assistant typing");
+      let full = "";
+      try {
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+          body: JSON.stringify({ model: MODEL, messages: history.slice(-20), stream: true }),
+        });
+        if (res.status === 401) throw new Error("Chave inválida. Toque em 🔑 e cole uma chave correta.");
+        if (!res.ok) throw new Error("Erro da API (" + res.status + "). Tente de novo.");
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n");
+          buffer = parts.pop();
+          for (const line of parts) {
+            const t = line.trim();
+            if (!t.startsWith("data:")) continue;
+            const payload = t.slice(5).trim();
+            if (payload === "[DONE]") continue;
+            try {
+              const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
+              if (delta) full += delta;
+            } catch {}
+          }
+          if (full) {
+            bubble.className = "msg assistant";
+            bubble.textContent = full;
+            $("chat").scrollTop = $("chat").scrollHeight;
+          }
+        }
+        if (!full) throw new Error("Resposta vazia. Tente de novo.");
+        history.push({ role: "assistant", content: full });
+        save();
+      } catch (err) {
+        bubble.className = "msg assistant error";
+        bubble.textContent = err.message || "Erro de conexão.";
+      } finally {
+        $("send").disabled = false;
+        $("input").focus();
+      }
+    }
+
+    $("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = $("input").value.trim();
+      if (text) send(text);
+    });
+
+    if (getKey()) showSetup(false); else showSetup(true);
+    load();
+  </script>
+</body>
+</html>
