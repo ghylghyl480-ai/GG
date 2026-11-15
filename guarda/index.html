@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d9488" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <title>Guarda Aí</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, sans-serif;
+      background: #0c1211; color: #e8f0ee; height: 100dvh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    header {
+      display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+      background: linear-gradient(#0f2a26, #0c1211); border-bottom: 1px solid #1c3a34;
+    }
+    header h1 { font-size: 18px; margin: 0; flex: 1; }
+    #addBtn {
+      background: #0d9488; color: #fff; border: 0; border-radius: 18px;
+      padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    #search-row { display: flex; gap: 8px; padding: 10px 14px 4px; }
+    #search {
+      flex: 1; padding: 10px 14px; border-radius: 20px; border: 1px solid #1c3a34;
+      background: #101b19; color: #e8f0ee; font-size: 14px;
+    }
+    #filters { display: flex; gap: 6px; padding: 8px 14px; flex-wrap: wrap; }
+    .chip {
+      border: 1px solid #1c3a34; background: #101b19; color: #7fb5aa;
+      border-radius: 16px; padding: 6px 12px; font-size: 12.5px; cursor: pointer;
+    }
+    .chip.on { background: #0d9488; color: #fff; border-color: #0d9488; }
+    #list { flex: 1; overflow-y: auto; padding: 6px 14px calc(14px + env(safe-area-inset-bottom)); }
+    .item {
+      background: #101b19; border: 1px solid #1c3a34; border-radius: 12px;
+      padding: 12px 14px; margin-bottom: 10px;
+    }
+    .item.watched { opacity: 0.55; }
+    .i-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .plat { font-size: 16px; }
+    .i-author { font-weight: 700; font-size: 14px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .i-date { font-size: 11px; color: #6e968d; flex: none; }
+    .i-note { font-size: 13px; color: #b8d0ca; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+    .i-url { font-size: 11.5px; color: #6e968d; word-break: break-all; margin-bottom: 10px; }
+    .i-actions { display: flex; gap: 8px; }
+    .i-btn {
+      flex: 1; padding: 9px 6px; border-radius: 8px; border: 0; font-size: 13px;
+      font-weight: 700; cursor: pointer; background: #1c3a34; color: #b8d0ca;
+    }
+    .i-btn.primary { background: #0d9488; color: #fff; }
+    .i-btn.danger { background: none; color: #ff8f8f; flex: 0 0 auto; padding: 9px 10px; }
+    #empty { text-align: center; color: #6e968d; padding: 70px 34px; line-height: 1.7; font-size: 14.5px; }
+    #askModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); align-items: center; justify-content: center; z-index: 20; padding: 24px; }
+    #askModal.show { display: flex; }
+    #ask-box { background: #12241f; border: 1px solid #1c3a34; border-radius: 14px; padding: 18px; width: 100%; max-width: 380px; }
+    #ask-box h3 { margin: 0 0 12px; font-size: 16px; }
+    #ask-input {
+      width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #1c3a34;
+      background: #0c1211; color: #fff; font-size: 15px; margin-bottom: 12px;
+    }
+    #ask-row { display: flex; gap: 8px; justify-content: flex-end; }
+    #ask-row button { padding: 10px 16px; border-radius: 8px; border: 0; font-size: 14px; cursor: pointer; font-weight: 700; }
+    #ask-cancel { background: #1c3a34; color: #7fb5aa; }
+    #ask-ok { background: #0d9488; color: #fff; }
+    #toast {
+      display: none; position: fixed; left: 50%; transform: translateX(-50%); bottom: 40px;
+      background: #0d9488; color: #fff; padding: 11px 18px; border-radius: 22px;
+      font-size: 13.5px; z-index: 30; max-width: 85%; text-align: center; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📥 Guarda Aí</h1>
+    <button id="addBtn">＋ Link</button>
+  </header>
+  <div id="search-row"><input id="search" placeholder="Buscar por autor, nota ou link..." /></div>
+  <div id="filters">
+    <button class="chip on" data-f="all">Todos</button>
+    <button class="chip" data-f="tiktok">🎵 TikTok</button>
+    <button class="chip" data-f="instagram">📸 Instagram</button>
+    <button class="chip" data-f="youtube">▶️ YouTube</button>
+    <button class="chip" data-f="outro">🔗 Outros</button>
+  </div>
+  <div id="list"></div>
+  <div id="askModal"><div id="ask-box">
+    <h3 id="ask-title"></h3>
+    <input id="ask-input" />
+    <div id="ask-row"><button id="ask-cancel">Cancelar</button><button id="ask-ok">Salvar</button></div>
+  </div></div>
+  <div id="toast"></div>
+  <script>
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+    const $ = (id) => document.getElementById(id);
+
+    function toast(msg) {
+      const t = $("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      clearTimeout(t._h);
+      t._h = setTimeout(() => t.style.display = "none", 3000);
+    }
+
+    function askModal(title, value) {
+      return new Promise((res) => {
+        $("ask-title").textContent = title;
+        $("ask-input").value = value || "";
+        $("askModal").classList.add("show");
+        const done = (v) => {
+          $("askModal").classList.remove("show");
+          $("ask-ok").onclick = null; $("ask-cancel").onclick = null; $("ask-input").onkeydown = null;
+          res(v);
+        };
+        $("ask-ok").onclick = () => done($("ask-input").value.trim());
+        $("ask-cancel").onclick = () => done(null);
+        $("ask-input").onkeydown = (e) => { if (e.key === "Enter") done($("ask-input").value.trim()); };
+        setTimeout(() => $("ask-input").focus(), 60);
+      });
+    }
+
+    function platform(url) {
+      if (/tiktok\.com/i.test(url)) return "tiktok";
+      if (/instagram\.com/i.test(url)) return "instagram";
+      if (/youtube\.com|youtu\.be/i.test(url)) return "youtube";
+      return "outro";
+    }
+    const PLAT_ICON = { tiktok: "🎵", instagram: "📸", youtube: "▶️", outro: "🔗" };
+    const PLAT_NAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube", outro: "Link" };
+
+    function authorFromUrl(url) {
+      const m = url.match(/tiktok\.com\/@([\w.\-]+)/i);
+      return m ? "@" + m[1] : "";
+    }
+
+    function load() {
+      try { return JSON.parse(localStorage.getItem("guarda-items") || "[]"); } catch { return []; }
+    }
+    function store(items) { localStorage.setItem("guarda-items", JSON.stringify(items)); }
+
+    let filter = "all";
+    let items = load();
+
+    async function saveLink(rawUrl, title, note) {
+      const url = (rawUrl.match(/https?:\/\/\S+/) || [rawUrl.trim()])[0];
+      if (!/^https?:\/\//i.test(url)) { toast("Isso não parece um link 😕"); return false; }
+      const author = authorFromUrl(url) || (await askModal("Quem postou? (nome do autor, pode deixar vazio)")) || "";
+      items.unshift({
+        id: Date.now() + "-" + Math.floor(Math.random() * 9999),
+        url, platform: platform(url),
+        author: author || "Autor não informado",
+        note: (note || "").trim(),
+        date: new Date().toLocaleDateString("pt-BR"),
+        watched: false,
+      });
+      store(items);
+      render();
+      return true;
+    }
+
+    function render() {
+      const list = $("list");
+      list.innerHTML = "";
+      const q = $("search").value.toLowerCase();
+      const shown = items.filter((it) =>
+        (filter === "all" || it.platform === filter) &&
+        (!q || (it.author + " " + it.note + " " + it.url).toLowerCase().includes(q))
+      );
+      if (shown.length === 0) {
+        list.innerHTML = '<div id="empty">Nada guardado ainda. 📥<br /><br /><b>Como usar:</b> no TikTok ou Instagram, toque em <b>Compartilhar</b> no vídeo e escolha <b>Guarda Aí</b> — o link cai aqui com o nome do autor. Ou toque em <b>＋ Link</b> pra colar manualmente.</div>';
+        return;
+      }
+      shown.forEach((it) => {
+        const div = document.createElement("div");
+        div.className = "item" + (it.watched ? " watched" : "");
+        const top = document.createElement("div");
+        top.className = "i-top";
+        top.innerHTML = '<span class="plat">' + PLAT_ICON[it.platform] + '</span><span class="i-author"></span><span class="i-date"></span>';
+        top.querySelector(".i-author").textContent = it.author + " · " + PLAT_NAME[it.platform];
+        top.querySelector(".i-date").textContent = it.date;
+        div.appendChild(top);
+        if (it.note) {
+          const n = document.createElement("div");
+          n.className = "i-note";
+          n.textContent = it.note;
+          div.appendChild(n);
+        }
+        const u = document.createElement("div");
+        u.className = "i-url";
+        u.textContent = it.url;
+        div.appendChild(u);
+        const acts = document.createElement("div");
+        acts.className = "i-actions";
+        const open = document.createElement("button");
+        open.className = "i-btn primary";
+        open.textContent = "▶ Abrir";
+        open.onclick = () => window.open(it.url, "_blank");
+        const watch = document.createElement("button");
+        watch.className = "i-btn";
+        watch.textContent = it.watched ? "↩ Não vi" : "✅ Já vi";
+        watch.onclick = () => { it.watched = !it.watched; store(items); render(); };
+        const edit = document.createElement("button");
+        edit.className = "i-btn";
+        edit.textContent = "✏️";
+        edit.onclick = async () => {
+          const a = await askModal("Autor:", it.author === "Autor não informado" ? "" : it.author);
+          if (a === null) return;
+          const n = await askModal("Nota (opcional):", it.note);
+          if (n === null) return;
+          it.author = a.trim() || "Autor não informado";
+          it.note = n;
+          store(items);
+          render();
+        };
+        const del = document.createElement("button");
+        del.className = "i-btn danger";
+        del.textContent = "🗑";
+        del.onclick = async () => {
+          if (await confirmDelete()) { items = items.filter((x) => x.id !== it.id); store(items); render(); }
+        };
+        acts.append(open, watch, edit, del);
+        div.appendChild(acts);
+        list.appendChild(div);
+      });
+    }
+
+    function confirmDelete() {
+      return askModal("Apagar esse link?", { input: false, okText: "Apagar" }).then((v) => v === true);
+    }
+
+    $("addBtn").onclick = async () => {
+      const url = await askModal("Cola o link do vídeo aqui:");
+      if (!url) return;
+      if (await saveLink(url)) toast("Guardado! 📥");
+    };
+    $("search").oninput = render;
+    document.querySelectorAll(".chip").forEach((c) => {
+      c.onclick = () => {
+        document.querySelectorAll(".chip").forEach((x) => x.classList.remove("on"));
+        c.classList.add("on");
+        filter = c.dataset.f;
+        render();
+      };
+    });
+
+    (function checkShare() {
+      const p = new URLSearchParams(location.search);
+      const url = p.get("url") || p.get("text") || p.get("title") || "";
+      const title = p.get("title") || "";
+      if (url && /https?:\/\//i.test(url)) {
+        saveLink(url, title).then((ok) => { if (ok) toast("Guardado direto do share! 📥"); });
+        history.replaceState(null, "", location.pathname);
+      }
+    })();
+
+    render();
+  </script>
+</body>
+</html>

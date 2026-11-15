@@ -5,6 +5,7 @@
 - **[🥗 FitBot IA](fitbot/)** — chat de dieta com IA: manda receitas com o que você tem em casa e conta as calorias do dia (mesma chave do Mano IA, salva só no aparelho).
 - **[⚔️ Arena IA](arena/)** — várias IAs (DeepSeek, Mistral, Llama...) conversando juntas num grupo, todas com memória compartilhada. Usa chave gratuita do OpenRouter.
 - **[💪 Meu Time IA](time/)** — seu time de IAs pessoais (foco em treino de academia + qualquer assunto): memória permanente no aparelho, pesquisa na internet (🌐) e geração de imagens grátis (🎨 via Pollinations). Chave gratuita do OpenRouter.
+- **[📥 Guarda Aí](guarda/)** — cofre de links de vídeos: compartilhe direto do TikTok/Instagram/YouTube para o app (Web Share Target) e ele salva o link com o nome do autor, busca e filtro por plataforma.
 - **[💻 Chat Mistral servidor](public/)** — chat com a API da Mistral (precisa rodar localmente com Node.js).
 
 ---
