@@ -7,6 +7,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.png" />
   <title>Meu Time IA</title>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/legacy/build/pdf.min.js"></script>
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
@@ -73,6 +74,19 @@
       color: #fff; font-size: 17px; cursor: pointer; flex: none;
     }
     button#send:disabled { opacity: 0.5; }
+    #askModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); align-items: center; justify-content: center; z-index: 20; padding: 24px; }
+    #askModal.show { display: flex; }
+    #ask-box { background: #1f1a33; border: 1px solid #2a2140; border-radius: 14px; padding: 18px; width: 100%; max-width: 360px; }
+    #ask-box h3 { margin: 0 0 12px; font-size: 16px; }
+    #ask-input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #2a2140; background: #171225; color: #fff; font-size: 15px; margin-bottom: 12px; }
+    #ask-row { display: flex; gap: 8px; justify-content: flex-end; }
+    #ask-row button { padding: 10px 16px; border-radius: 8px; border: 0; font-size: 14px; cursor: pointer; font-weight: 700; }
+    #ask-cancel { background: #2a2140; color: #b79aec; }
+    #ask-ok { background: #7c3aed; color: #fff; }
+    #toast { display: none; position: fixed; left: 50%; transform: translateX(-50%); bottom: 100px; background: #2a2140; color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px; z-index: 30; max-width: 85%; text-align: center; }
+    #chip { display: none; align-items: center; gap: 8px; margin: 0 14px 4px; padding: 7px 12px; background: #1e1533; border: 1px solid #2a2140; border-radius: 8px; font-size: 12.5px; color: #b79aec; }
+    #chip.show { display: flex; }
+    #chip button { margin-left: auto; background: none; border: 0; color: #ff9aa8; font-size: 14px; cursor: pointer; padding: 2px 6px; }
   </style>
 </head>
 <body>
@@ -92,11 +106,16 @@
     <button id="startChat">Montar meu time 🚀</button>
   </div>
   <div id="chat"></div>
+  <div id="chip"><span id="chip-text"></span><button id="chip-del">✕</button></div>
   <form id="form">
     <button type="button" class="fbtn" id="imgBtn" title="Gerar imagem grátis">🎨</button>
+    <button type="button" class="fbtn" id="attachBtn" title="Anexar TXT ou PDF">📎</button>
+    <input id="docInput" type="file" accept=".txt,.pdf,text/plain,application/pdf" hidden />
     <input id="input" placeholder="Ex: montar treino de hoje, braço e peito" autocomplete="off" />
     <button id="send">➤</button>
   </form>
+  <div id="askModal"><div id="ask-box"><h3 id="ask-title"></h3><input id="ask-input" /><div id="ask-row"><button id="ask-cancel">Cancelar</button><button id="ask-ok">OK</button></div></div></div>
+  <div id="toast"></div>
   <script>
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
     const $ = (id) => document.getElementById(id);
@@ -149,8 +168,80 @@
     let selected = JSON.parse(localStorage.getItem("time-bots") || '["inclusionai/ling-3.2-flash:free","baidu/ernie-5.5-flash-preview:free"]');
     let busy = false, stopFlag = false;
 
+    if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/legacy/build/pdf.worker.min.js";
+
     function getKey() { return localStorage.getItem("openrouter-key"); }
     function researchOn() { return localStorage.getItem("time-research") === "1"; }
+
+    function toast(msg) {
+      const t = $("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      clearTimeout(t._h);
+      t._h = setTimeout(() => t.style.display = "none", 3500);
+    }
+
+    function askModal(title, opts) {
+      const o = opts || {};
+      return new Promise((res) => {
+        $("ask-title").textContent = title;
+        $("ask-input").style.display = o.input === false ? "none" : "block";
+        $("ask-input").value = o.value || "";
+        $("ask-input").placeholder = o.placeholder || "";
+        $("ask-ok").textContent = o.okText || "OK";
+        $("askModal").classList.add("show");
+        const done = (v) => {
+          $("askModal").classList.remove("show");
+          $("ask-ok").onclick = null; $("ask-cancel").onclick = null; $("ask-input").onkeydown = null;
+          res(v);
+        };
+        $("ask-ok").onclick = () => done(o.input === false ? true : $("ask-input").value.trim());
+        $("ask-cancel").onclick = () => done(o.input === false ? false : null);
+        $("ask-input").onkeydown = (e) => { if (e.key === "Enter") done($("ask-input").value.trim()); };
+        if (o.input !== false) setTimeout(() => $("ask-input").focus(), 60);
+      });
+    }
+
+    let pendingDoc = null;
+    function showChip() {
+      const c = $("chip");
+      if (pendingDoc) {
+        $("chip-text").textContent = "📄 " + pendingDoc.name + " (" + pendingDoc.text.length + " caracteres)";
+        c.classList.add("show");
+      } else c.classList.remove("show");
+    }
+    $("chip-del").onclick = () => { pendingDoc = null; showChip(); };
+
+    $("attachBtn").onclick = () => $("docInput").click();
+    $("docInput").onchange = async (e) => {
+      const f = e.target.files[0];
+      e.target.value = "";
+      if (!f) return;
+      toast("Lendo " + f.name + "...");
+      try {
+        let text = "";
+        if (/\.pdf$/i.test(f.name) || f.type === "application/pdf") {
+          if (!window.pdfjsLib) throw new Error("sem pdf");
+          const buf = await f.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+          const pages = Math.min(pdf.numPages, 30);
+          for (let i = 1; i <= pages; i++) {
+            const page = await pdf.getPage(i);
+            const tc = await page.getTextContent();
+            text += tc.items.map((s) => s.str).join(" ") + "\n";
+          }
+          text = text.replace(/\s+/g, " ").trim();
+        } else {
+          text = (await f.text()).replace(/\s+/g, " ").trim();
+        }
+        if (!text) { toast("Não achei texto nesse arquivo 😕"); return; }
+        pendingDoc = { name: f.name, text: text.slice(0, 12000) };
+        showChip();
+        toast("Documento pronto! Escreva sua pergunta e envie.");
+      } catch {
+        toast("Não consegui ler esse arquivo 😕");
+      }
+    };
 
     function renderBotList() {
       const box = $("botList");
@@ -162,7 +253,7 @@
         cb.type = "checkbox";
         cb.checked = selected.includes(b.id);
         cb.onchange = () => {
-          if (cb.checked) { if (selected.length >= 4) { cb.checked = false; alert("Máximo 4 IAs no time."); return; } selected.push(b.id); }
+          if (cb.checked) { if (selected.length >= 4) { cb.checked = false; toast("Máximo 4 IAs no time."); return; } selected.push(b.id); }
           else selected = selected.filter((x) => x !== b.id);
           localStorage.setItem("time-bots", JSON.stringify(selected));
           renderBotList();
@@ -187,13 +278,13 @@
       localStorage.setItem("openrouter-key", k);
     };
     $("startChat").onclick = () => {
-      if (!getKey()) { alert("Cola a chave do OpenRouter primeiro!"); return; }
-      if (selected.length < 2) { alert("Escolhe pelo menos 2 IAs pro time!"); return; }
+      if (!getKey()) { toast("Cola a chave do OpenRouter primeiro!"); return; }
+      if (selected.length < 2) { toast("Escolhe pelo menos 2 IAs pro time!"); return; }
       showSetup(false);
     };
     $("cfgBtn").onclick = () => { $("keyInput").value = getKey() || ""; renderBotList(); showSetup(true); };
-    $("clearBtn").onclick = () => {
-      if (!confirm("Apagar TODA a memória das conversas? O time esquece tudo.")) return;
+    $("clearBtn").onclick = async () => {
+      if (!(await askModal("Apagar TODA a memória das conversas? O time esquece tudo.", { input: false, okText: "Apagar tudo" }))) return;
       history = [];
       localStorage.removeItem("time-history");
       $("chat").innerHTML = "";
@@ -202,7 +293,7 @@
       const on = !researchOn();
       localStorage.setItem("time-research", on ? "1" : "0");
       $("webBtn").classList.toggle("on", on);
-      alert(on ? "🌐 Pesquisa na internet LIGADA (usa um pouquinho de crédito do OpenRouter por resposta)."
+      toast(on ? "🌐 Pesquisa na internet LIGADA (usa um pouquinho de crédito do OpenRouter por resposta)."
                : "🌐 Pesquisa desligada (100% grátis de novo).");
     };
 
@@ -329,16 +420,23 @@
       const text = $("input").value.trim();
       if (!text || busy) return;
       $("input").value = "";
-      addMsg("user", null, text);
-      history.push({ kind: "user", name: null, content: text });
+      let content = text;
+      let display = text;
+      if (pendingDoc) {
+        content = text + "\n\n[Documento anexado: " + pendingDoc.name + "\nConteúdo: " + pendingDoc.text + "]";
+        display = text + "\n📄 " + pendingDoc.name;
+        pendingDoc = null;
+        showChip();
+      }
+      addMsg("user", null, display);
+      history.push({ kind: "user", name: null, content });
       save();
       runTurns();
     });
 
-    $("imgBtn").onclick = () => {
-      const prompt = prompt("Descreva a imagem que você quer gerar (grátis):", "");
-      if (!prompt || !prompt.trim()) return;
-      const p = prompt.trim();
+    $("imgBtn").onclick = async () => {
+      const p = await askModal("Descreva a imagem que você quer gerar (grátis):", { placeholder: "ex: um leão levantando peso na academia" });
+      if (!p) return;
       const url = IMG_API + encodeURIComponent(p) + "?width=768&height=768&nologo=true&seed=" + Math.floor(Math.random() * 999999);
       addImage(url, p);
       history.push({ kind: "image", name: null, content: p, url });
