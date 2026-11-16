@@ -437,7 +437,7 @@
     $("imgBtn").onclick = async () => {
       const p = await askModal("Descreva a imagem que você quer gerar (grátis):", { placeholder: "ex: um leão levantando peso na academia" });
       if (!p) return;
-      const url = IMG_API + encodeURIComponent(p) + "?width=768&height=768&nologo=true&seed=" + Math.floor(Math.random() * 999999);
+      const url = IMG_API + encodeURIComponent(p) + "?width=768&height=768&nologo=true&model=flux&seed=" + Math.floor(Math.random() * 999999);
       addImage(url, p);
       history.push({ kind: "image", name: null, content: p, url });
       save();
