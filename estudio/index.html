@@ -18,7 +18,7 @@
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; margin:10px 0; }
   .scene { border:1px solid var(--line); border-radius:12px; padding:10px; margin:10px 0; background:#101816; }
   .scene img { width:100%; border-radius:8px; display:block; background:#0a0f0e; min-height:120px; object-fit:cover; }
-  input, textarea, select { width:100%; background:#0a0f0e; border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:10px; font-size:14px; margin:6px 0; }
+  input, textarea, select { width:100%; background:#0a0f0e; border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:10px; font-size:16px; margin:6px 0; }
   textarea { resize:vertical; min-height:54px; }
   button { border:none; border-radius:9px; padding:11px 14px; font-size:14px; font-weight:700; cursor:pointer; background:#1c2a27; color:var(--txt); }
   button:active { transform:scale(.97); }
@@ -39,7 +39,11 @@
   .chip { display:inline-block; background:#0a0f0e; border:1px solid var(--line); color:var(--mut); border-radius:99px; padding:4px 10px; font-size:12px; margin:2px; }
   .rec-badge { color:#f87171; font-weight:800; font-size:13px; display:none; }
   .rec-badge.on { display:block; }
-</style>
+
+    /* CSS PRO TIPS (github.com/AllThingsSmitty/css-protips) */
+    button, a, input, select, textarea, [role="button"] { touch-action: manipulation; }
+    html, body { overscroll-behavior-y: contain; }
+  </style>
 </head>
 <body>
 <header>
