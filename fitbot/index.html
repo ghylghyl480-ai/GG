@@ -223,7 +223,8 @@
             stream: true,
           }),
         });
-        if (res.status === 401) throw new Error("Chave inválida. Toque em 🔑 e cole uma chave correta.");
+        if (res.status === 401) throw new Error("Chave inválida ou expirada. Gera outra grátis em console.mistral.ai (API Keys → Create new key) e cola no 🔑.");
+        if (res.status === 429) throw new Error("Limite grátis da Mistral estourou agora. Espera uns minutos e manda de novo.");
         if (!res.ok) throw new Error("Erro da API (" + res.status + "). Tente de novo.");
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
