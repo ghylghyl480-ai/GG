@@ -114,26 +114,37 @@
     const MISTRAL_MODEL = "mistral-small-latest";
     const OR_API = "https://openrouter.ai/api/v1/chat/completions";
     const FALLBACK_MODELS = ["inclusionai/ling-3.2-flash:free", "baidu/ernie-5.5-flash-preview:free"];
-    let orModel = localStorage.getItem("fitbot-model") || null;
+    let orPool = null;
+    const orBad = new Set();
 
     function orKey() { return localStorage.getItem("openrouter-key"); }
     function getKey() { return orKey() || localStorage.getItem("mistral-key"); }
 
-    async function loadFreeModel() {
-      if (orModel) return orModel;
+    async function loadFreeModels() {
+      if (orPool && orPool.length) return orPool;
+      let list = [];
       try {
         const r = await fetch("https://openrouter.ai/api/v1/models");
         const j = await r.json();
         const bad = /embed|rerank|whisper|tts|voice|decider|recraft|omni|video/i;
-        const free = (j.data || []).filter((m) =>
+        list = (j.data || []).filter((m) =>
           m.id && m.id.endsWith(":free") && m.pricing && m.pricing.prompt === "0" &&
           (!m.architecture || !m.architecture.output_modalities || m.architecture.output_modalities.includes("text")) &&
           !bad.test(m.id)
-        );
-        const known = free.find((m) => FALLBACK_MODELS.includes(m.id)) || free[0];
-        if (known) { orModel = known.id; localStorage.setItem("fitbot-model", orModel); }
+        ).map((m) => m.id);
       } catch (e) {}
-      return orModel || FALLBACK_MODELS[0];
+      for (const fb of FALLBACK_MODELS) if (!list.includes(fb)) list.push(fb);
+      orPool = list;
+      return orPool;
+    }
+
+    async function nextFreeModel() {
+      const pool = await loadFreeModels();
+      const saved = localStorage.getItem("fitbot-model");
+      for (const id of [saved, ...pool]) {
+        if (id && !orBad.has(id)) { localStorage.setItem("fitbot-model", id); return id; }
+      }
+      return null;
     }
     const SYSTEM = [
       "Você é o FitBot IA, um amigo brasileiro que ajuda com dieta de verdade, falando português informal (tipo 'beleza', 'firmeza').",
@@ -229,7 +240,7 @@
       if (!k) return;
       if (k.startsWith("sk-or-")) localStorage.setItem("openrouter-key", k);
       else localStorage.setItem("mistral-key", k);
-      orModel = null;
+      orPool = null; orBad.clear();
       showSetup(false);
     };
 
@@ -242,7 +253,7 @@
         return;
       }
       ["fitbot-goal", "fitbot-eaten", "fitbot-history", "fitbot-model", "openrouter-key", "mistral-key"].forEach((k) => localStorage.removeItem(k));
-      orModel = null;
+      orPool = null; orBad.clear();
       try {
         const keys = await caches.keys();
         await Promise.all(keys.map((k) => caches.delete(k)));
@@ -266,16 +277,29 @@
       try {
         const usingOR = !!orKey();
         const api = usingOR ? OR_API : MISTRAL_API;
-        const model = usingOR ? await loadFreeModel() : MISTRAL_MODEL;
-        const res = await fetch(api, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-          body: JSON.stringify({
-            model: model,
-            messages: [{ role: "system", content: SYSTEM + "\n\n" + ctxLine() }, ...history.slice(-20)],
-            stream: true,
-          }),
-        });
+        let model = usingOR ? await nextFreeModel() : MISTRAL_MODEL;
+        if (usingOR && !model) throw new Error("Todos os modelos grátis bateram o limite agora. Espera uns minutos e manda de novo.");
+        let res;
+        for (let attempt = 0; ; attempt++) {
+          res = await fetch(api, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+            body: JSON.stringify({
+              model: model,
+              messages: [{ role: "system", content: SYSTEM + "\n\n" + ctxLine() }, ...history.slice(-20)],
+              stream: true,
+            }),
+          });
+          if (res.status === 429 && usingOR && attempt < 2) {
+            orBad.add(model);
+            localStorage.removeItem("fitbot-model");
+            const alt = await nextFreeModel();
+            if (!alt) break;
+            model = alt;
+            continue;
+          }
+          break;
+        }
         if (res.status === 401) throw new Error(usingOR ? "Chave do OpenRouter inválida. Gera outra grátis em openrouter.ai → Keys e cola no 🔑." : "Chave inválida ou expirada. Gera outra grátis em console.mistral.ai (API Keys → Create new key) e cola no 🔑.");
         if (res.status === 429) throw new Error("Limite grátis estourou agora. Espera uns minutos e manda de novo.");
         if (!res.ok) throw new Error("Erro da API (" + res.status + "). Tente de novo.");
