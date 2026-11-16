@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Toca Aí</title>
+<meta name="theme-color" content="#121212" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #121212; color: #fff; font-family: system-ui, sans-serif;
+    height: 100dvh; overflow: hidden; user-select: none;
+  }
+  button { font-family: inherit; }
+
+  #views { position: absolute; inset: 0; bottom: 0; overflow-y: auto; padding: 20px 16px 0; -webkit-overflow-scrolling: touch; }
+  .view { display: none; padding-bottom: 180px; }
+  .view.on { display: block; }
+  h2 { font-size: 20px; margin: 18px 0 10px; }
+
+  .greet { font-size: 26px; font-weight: 800; margin: 8px 0 16px; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .card {
+    display: flex; align-items: center; gap: 10px; background: #1f1f1f;
+    border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700;
+    border: 0; color: #fff; text-align: left; cursor: pointer;
+  }
+  .card .em { font-size: 26px; }
+
+  .row {
+    display: flex; align-items: center; gap: 12px; padding: 8px 4px;
+    border-radius: 8px; cursor: pointer;
+  }
+  .row:active { background: #1f1f1f; }
+  .art {
+    width: 48px; height: 48px; border-radius: 6px; flex: none;
+    background: linear-gradient(135deg, #2a4d33, #1f1f1f);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    overflow: hidden;
+  }
+  .art img { width: 100%; height: 100%; object-fit: cover; }
+  .meta { flex: 1; min-width: 0; }
+  .meta .t { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta .a { font-size: 13px; color: #a7a7a7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .more { background: none; border: 0; color: #a7a7a7; font-size: 20px; padding: 8px; }
+
+  .plist-scroller { display: flex; gap: 12px; overflow-x: auto; padding: 4px 0 8px; }
+  .plist-card { width: 130px; flex: none; cursor: pointer; }
+  .plist-card .cover {
+    width: 130px; height: 130px; border-radius: 8px;
+    background: linear-gradient(135deg, #1e5c3a, #121212);
+    display: flex; align-items: center; justify-content: center; font-size: 40px;
+  }
+  .plist-card .n { font-size: 13px; font-weight: 700; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  #searchInput {
+    width: 100%; padding: 12px 16px; border-radius: 24px; border: 0;
+    background: #1f1f1f; color: #fff; font-size: 15px; outline: none; margin-bottom: 12px;
+  }
+
+  .fab {
+    width: 100%; padding: 14px; border: 0; border-radius: 12px;
+    background: #1ec55e; color: #06240f; font-size: 15px; font-weight: 800;
+    cursor: pointer; margin-bottom: 16px;
+  }
+  .ghost {
+    width: 100%; padding: 12px; border: 1px solid #333; border-radius: 12px;
+    background: transparent; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+
+  /* mini player */
+  #mini {
+    position: absolute; left: 8px; right: 8px; bottom: 66px;
+    background: #2a2a2a; border-radius: 10px; display: none;
+    align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; z-index: 30;
+  }
+  #mini.on { display: flex; }
+  #mini .art { width: 38px; height: 38px; font-size: 18px; }
+  #mini .meta { flex: 1; }
+  #mini .meta .t { font-size: 13px; }
+  #mini button { background: none; border: 0; color: #fff; font-size: 22px; padding: 6px; }
+  #miniTrack { position: absolute; left: 12px; right: 12px; bottom: 2px; height: 2px; background: #4d4d4d; border-radius: 2px; }
+  #miniTrack i { display: block; height: 100%; width: 0; background: #1ec55e; border-radius: 2px; }
+
+  /* tab bar */
+  #tabs {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 60px;
+    background: #181818; border-top: 1px solid #222; display: flex; z-index: 30;
+  }
+  #tabs button {
+    flex: 1; background: none; border: 0; color: #a7a7a7; font-size: 11px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  }
+  #tabs button .i { font-size: 20px; }
+  #tabs button.on { color: #fff; }
+
+  /* now playing */
+  #np {
+    position: absolute; inset: 0; background: #121212; z-index: 40;
+    transform: translateY(100%); transition: transform .28s ease;
+    display: flex; flex-direction: column; padding: 16px 20px calc(24px + env(safe-area-inset-bottom));
+  }
+  #np.on { transform: translateY(0); }
+  #npHead { display: flex; justify-content: space-between; align-items: center; }
+  #npHead button { background: none; border: 0; color: #fff; font-size: 24px; padding: 8px; }
+  #npArt {
+    width: min(78vw, 320px); aspect-ratio: 1; margin: 18px auto; border-radius: 12px;
+    background: linear-gradient(135deg, #1e5c3a, #0d2818);
+    display: flex; align-items: center; justify-content: center; font-size: 72px;
+    box-shadow: 0 14px 40px rgba(0,0,0,.6); overflow: hidden;
+  }
+  #npArt img { width: 100%; height: 100%; object-fit: cover; }
+  #npTitle { font-size: 21px; font-weight: 800; margin: 4px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #npArtist { color: #a7a7a7; font-size: 14px; }
+  #seekWrap { margin: 18px 0 4px; }
+  #seek { width: 100%; appearance: none; height: 4px; border-radius: 2px; background: #4d4d4d; outline: none; }
+  #seek::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+  #times { display: flex; justify-content: space-between; font-size: 11px; color: #a7a7a7; }
+  #npCtl { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+  #npCtl button { background: none; border: 0; color: #fff; font-size: 26px; padding: 10px; }
+  #playBtn {
+    width: 64px; height: 64px; border-radius: 50%; border: 0; background: #1ec55e;
+    color: #06240f; font-size: 28px; cursor: pointer;
+  }
+  .modectl.on { color: #1ec55e !important; }
+
+  #eqPanel { display: none; margin-top: 8px; background: #1f1f1f; border-radius: 12px; padding: 12px 16px; }
+  #eqPanel.on { display: block; }
+  #eqPanel label { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #a7a7a7; margin: 8px 0; }
+  #eqPanel input { flex: 1; }
+  #eqPanel b { width: 52px; text-align: right; color: #1ec55e; }
+
+  /* sheet (menu da musica) */
+  #sheet {
+    position: absolute; left: 0; right: 0; bottom: -100%; z-index: 50;
+    background: #1f1f1f; border-radius: 16px 16px 0 0; padding: 16px;
+    transition: bottom .25s ease; max-height: 70%; overflow-y: auto;
+  }
+  #sheet.on { bottom: 0; }
+  #sheet .row { padding: 10px 4px; }
+  #sheet h3 { margin: 0 0 8px; font-size: 15px; }
+
+  /* modal / toast */
+  #modal {
+    position: absolute; inset: 0; background: rgba(0,0,0,.6); z-index: 60;
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  #modal.on { display: flex; }
+  #modalBox { background: #282828; border-radius: 14px; padding: 20px; width: 100%; max-width: 340px; }
+  #modalBox h3 { margin: 0 0 12px; font-size: 16px; }
+  #modalBox input {
+    width: 100%; padding: 12px; border-radius: 8px; border: 0; background: #1f1f1f;
+    color: #fff; font-size: 15px; margin-bottom: 12px;
+  }
+  #modalBox .btns { display: flex; gap: 10px; }
+  #modalBox .btns button { flex: 1; padding: 12px; border-radius: 8px; border: 0; font-weight: 700; }
+  #modalOk { background: #1ec55e; color: #06240f; }
+  #modalNo { background: transparent; color: #a7a7a7; }
+  #toast {
+    position: absolute; left: 50%; bottom: 130px; transform: translateX(-50%) translateY(20px);
+    background: #1ec55e; color: #06240f; font-weight: 700; font-size: 13px;
+    padding: 10px 18px; border-radius: 20px; opacity: 0; transition: all .25s; z-index: 70;
+    pointer-events: none; white-space: nowrap;
+  }
+  #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="views">
+  <section class="view on" id="view-home">
+    <div class="greet" id="greet">Boa noite 👋</div>
+    <div class="cards">
+      <button class="card" id="addBtn"><span class="em">🎵</span> Adicionar músicas</button>
+      <button class="card" id="shuffleAll"><span class="em">🔀</span> Tocar tudo</button>
+      <button class="card" id="newPlBtn"><span class="em">➕</span> Nova playlist</button>
+      <button class="card" id="eqBtnHome"><span class="em">🎚️</span> Equalizador</button>
+    </div>
+    <h2>Suas playlists</h2>
+    <div class="plist-scroller" id="plHome"></div>
+    <h2>Todas as músicas</h2>
+    <div id="listHome"></div>
+  </section>
+
+  <section class="view" id="view-search">
+    <h2>Buscar</h2>
+    <input id="searchInput" placeholder="Música ou artista..." />
+    <div id="listSearch"></div>
+  </section>
+
+  <section class="view" id="view-lib">
+    <h2>Biblioteca</h2>
+    <button class="fab" id="addBtn2">＋ Adicionar músicas</button>
+    <h2>Playlists</h2>
+    <div id="plLib"></div>
+    <h2>Músicas</h2>
+    <div id="listLib"></div>
+  </section>
+</div>
+
+<div id="mini">
+  <div class="art" id="miniArt">♪</div>
+  <div class="meta">
+    <div class="t" id="miniTitle"></div>
+    <div class="a" id="miniArtist" style="font-size:11px;color:#a7a7a7"></div>
+  </div>
+  <button id="miniPlay">▶️</button>
+  <div id="miniTrack"><i></i></div>
+</div>
+
+<nav id="tabs">
+  <button data-v="home" class="on"><span class="i">🏠</span>Início</button>
+  <button data-v="search"><span class="i">🔍</span>Buscar</button>
+  <button data-v="lib"><span class="i">📚</span>Biblioteca</button>
+</nav>
+
+<div id="np">
+  <div id="npHead">
+    <button id="npClose">⌄</button>
+    <span style="font-size:12px;color:#a7a7a7">TOCANDO</span>
+    <button id="eqBtn">🎚️</button>
+  </div>
+  <div id="npArt">♪</div>
+  <div id="npTitle"></div>
+  <div id="npArtist"></div>
+  <div id="seekWrap">
+    <input id="seek" type="range" min="0" max="1000" value="0" />
+    <div id="times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
+  </div>
+  <div id="npCtl">
+    <button id="shufBtn" class="modectl">🔀</button>
+    <button id="prevBtn">⏮️</button>
+    <button id="playBtn">▶️</button>
+    <button id="nextBtn">⏭️</button>
+    <button id="repBtn" class="modectl">🔁</button>
+  </div>
+  <div id="eqPanel">
+    <label> graves <input id="eqLow" type="range" min="-12" max="12" value="0" /> <b id="eqLowV">0dB</b></label>
+    <label> médios <input id="eqMid" type="range" min="-12" max="12" value="0" /> <b id="eqMidV">0dB</b></label>
+    <label> agudos <input id="eqHigh" type="range" min="-12" max="12" value="0" /> <b id="eqHighV">0dB</b></label>
+  </div>
+</div>
+
+<div id="sheet">
+  <h3 id="sheetTitle">Música</h3>
+  <div class="row" id="shPlay"><span>▶️</span> Tocar agora</div>
+  <div class="row" id="shQueue"><span>➕</span> Tocar em seguida</div>
+  <div class="row" id="shFav"><span>💚</span> Favoritar</div>
+  <div class="row" id="shPl"><span>📂</span> Adicionar à playlist</div>
+  <div class="row" id="shDel" style="color:#e08080"><span>🗑️</span> Remover do app</div>
+</div>
+
+<div id="modal"><div id="modalBox">
+  <h3 id="modalTitle">Nova playlist</h3>
+  <input id="modalInput" placeholder="Nome da playlist" />
+  <div class="btns"><button id="modalNo">Cancelar</button><button id="modalOk">Criar</button></div>
+</div></div>
+
+<div id="toast"></div>
+
+<input type="file" id="filePick" accept="audio/*" multiple style="display:none" />
+
+<script>
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+const $ = (id) => document.getElementById(id);
+const toast = (t) => { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), 2200); };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+/* ---------- banco ---------- */
+let db;
+const openDB = () => new Promise((res, rej) => {
+  const r = indexedDB.open("toca-db", 1);
+  r.onupgradeneeded = (e) => {
+    const d = e.target.result;
+    d.createObjectStore("songs", { keyPath: "id" });
+    d.createObjectStore("playlists", { keyPath: "id" });
+  };
+  r.onsuccess = () => { db = r.result; res(); };
+  r.onerror = () => rej(r.error);
+});
+const dbPut = (st, v) => new Promise((res, rej) => { const t = db.transaction(st, "readwrite"); t.objectStore(st).put(v); t.oncomplete = res; t.onerror = () => rej(t.error); });
+const dbDel = (st, k) => new Promise((res) => { const t = db.transaction(st, "readwrite"); t.objectStore(st).delete(k); t.oncomplete = res; });
+const dbAll = (st) => new Promise((res) => { const r = db.transaction(st).objectStore(st).getAll(); r.onsuccess = () => res(r.result || []); });
+
+let songs = [];
+let playlists = [];
+const byId = (id) => songs.find((s) => s.id === id);
+
+/* ---------- ID3 ---------- */
+async function parseTags(file) {
+  const out = { title: file.name.replace(/\.[^.]+$/, ""), artist: "Desconhecido", album: "", cover: null };
+  try {
+    const head = new Uint8Array(await file.slice(0, 10).arrayBuffer());
+    if (String.fromCharCode(...head.slice(0, 3)) !== "ID3") return out;
+    const ver = head[3];
+    const size = ((head[6] & 0x7f) << 21) | ((head[7] & 0x7f) << 14) | ((head[8] & 0x7f) << 7) | (head[9] & 0x7f);
+    const buf = new Uint8Array(await file.slice(10, 10 + Math.min(size, 3 * 1024 * 1024)).arrayBuffer());
+    let pos = 0;
+    const text = (bytes) => {
+      if (!bytes.length) return "";
+      const enc = bytes[0]; const d = bytes.slice(1);
+      try {
+        if (enc === 1) return new TextDecoder("utf-16").decode(d).replace(/\0+$/, "");
+        if (enc === 2) return new TextDecoder("utf-16be").decode(d).replace(/\0+$/, "");
+        if (enc === 3) return new TextDecoder("utf-8").decode(d).replace(/\0+$/, "");
+        return new TextDecoder("iso-8859-1").decode(d).replace(/\0+$/, "");
+      } catch { return ""; }
+    };
+    while (pos + 10 <= buf.length) {
+      const id = String.fromCharCode(...buf.slice(pos, pos + 4));
+      if (!/^[A-Z0-9]{4}$/.test(id)) break;
+      let fsize = ver === 4
+        ? ((buf[pos + 4] & 0x7f) << 21) | ((buf[pos + 5] & 0x7f) << 14) | ((buf[pos + 6] & 0x7f) << 7) | (buf[pos + 7] & 0x7f)
+        : (buf[pos + 4] << 24) | (buf[pos + 5] << 16) | (buf[pos + 6] << 8) | buf[pos + 7];
+      if (fsize <= 0 || pos + 10 + fsize > buf.length) break;
+      const data = buf.slice(pos + 10, pos + 10 + fsize);
+      if (id === "TIT2") out.title = text(data) || out.title;
+      else if (id === "TPE1") out.artist = text(data) || out.artist;
+      else if (id === "TALB") out.album = text(data);
+      else if (id === "APIC" && !out.cover) {
+        let p = 1;
+        while (p < data.length && data[p] !== 0) p++;
+        const mime = String.fromCharCode(...data.slice(1, p)) || "image/jpeg";
+        p++;
+        p++;
+        const enc = data[0];
+        if (enc === 1 || enc === 2) { while (p + 1 < data.length && !(data[p] === 0 && data[p + 1] === 0)) p += 2; p += 2; }
+        else { while (p < data.length && data[p] !== 0) p++; p++; }
+        if (p < data.length) out.cover = new Blob([data.slice(p)], { type: mime });
+      }
+      pos += 10 + fsize;
+    }
+  } catch {}
+  return out;
+}
+
+/* ---------- audio ---------- */
+const audio = new Audio();
+audio.preload = "metadata";
+let actx, eqNodes;
+function ensureEq() {
+  if (actx) return;
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = actx.createMediaElementSource(audio);
+    const low = actx.createBiquadFilter(); low.type = "lowshelf"; low.frequency.value = 200;
+    const mid = actx.createBiquadFilter(); mid.type = "peaking"; mid.frequency.value = 1000; mid.Q.value = 0.9;
+    const high = actx.createBiquadFilter(); high.type = "highshelf"; high.frequency.value = 4000;
+    src.connect(low); low.connect(mid); mid.connect(high); high.connect(actx.destination);
+    eqNodes = { low, mid, high };
+    ["low", "mid", "high"].forEach((k) => {
+      const v = parseFloat(localStorage.getItem("toca-eq-" + k) || "0");
+      eqNodes[k].gain.value = v;
+      $("eq" + k[0].toUpperCase() + k.slice(1)).value = v;
+    });
+  } catch {}
+}
+
+let queue = [], qPos = -1, shuffle = false, repeat = localStorage.getItem("toca-repeat") || "off";
+let curUrl = null, curId = null;
+
+function shuffled(a) { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
+
+async function playIndex(i) {
+  if (!queue.length) return;
+  qPos = ((i % queue.length) + queue.length) % queue.length;
+  const song = byId(queue[qPos]);
+  if (!song) return;
+  ensureEq();
+  if (actx && actx.state === "suspended") actx.resume();
+  if (curUrl) URL.revokeObjectURL(curUrl);
+  curUrl = URL.createObjectURL(song.blob);
+  curId = song.id;
+  audio.src = curUrl;
+  audio.play();
+  localStorage.setItem("toca-last", song.id);
+  paintNow(song);
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.title, artist: song.artist, album: song.album || "Toca Aí",
+      artwork: song.cover ? [{ src: URL.createObjectURL(song.cover), sizes: "512x512" }] : [],
+    });
+  }
+}
+const playSong = (id) => { queue = [id]; qPos = 0; playIndex(0); };
+const playAll = () => { if (!songs.length) { toast("Adiciona músicas primeiro! 🎵"); return; } queue = shuffle ? shuffled(songs.map((s) => s.id)) : songs.map((s) => s.id); playIndex(0); };
+function next() { if (!queue.length) return; if (repeat === "one") { audio.currentTime = 0; audio.play(); return; } if (qPos >= queue.length - 1 && repeat === "off" && !shuffle) { audio.pause(); return; } playIndex(qPos + 1); }
+function prev() { if (audio.currentTime > 3) { audio.currentTime = 0; return; } playIndex(qPos - 1); }
+
+function paintNow(song) {
+  $("mini").classList.add("on");
+  $("miniTitle").textContent = song.title;
+  $("miniArtist").textContent = song.artist;
+  $("miniPlay").textContent = audio.paused ? "▶️" : "⏸️";
+  $("npTitle").textContent = song.title;
+  $("npArtist").textContent = song.artist;
+  const arts = [$("miniArt"), $("npArt")];
+  arts.forEach((a) => { a.innerHTML = ""; if (song.cover) { const img = document.createElement("img"); img.src = URL.createObjectURL(song.cover); img.onload = () => {}; a.appendChild(img); } else a.textContent = "♪"; });
+  $("shufBtn").classList.toggle("on", shuffle);
+  $("repBtn").classList.toggle("on", repeat !== "off");
+  $("repBtn").textContent = repeat === "one" ? "🔂" : "🔁";
+}
+
+/* ---------- controles ---------- */
+$("playBtn").onclick = () => { if (!audio.src) { playAll(); return; } audio.paused ? audio.play() : audio.pause(); };
+$("miniPlay").onclick = (e) => { e.stopPropagation(); $("playBtn").onclick(); };
+$("mini").onclick = () => $("np").classList.add("on");
+$("npClose").onclick = () => $("np").classList.remove("on");
+$("nextBtn").onclick = next;
+$("prevBtn").onclick = prev;
+$("shufBtn").onclick = () => { shuffle = !shuffle; if (queue.length) { const cur = queue[qPos]; queue = shuffle ? shuffled(queue) : queue; qPos = queue.indexOf(cur); } paintNow(byId(curId) || {}); toast(shuffle ? "Aleatório ligado 🔀" : "Aleatório desligado"); };
+$("repBtn").onclick = () => { repeat = repeat === "off" ? "all" : repeat === "all" ? "one" : "off"; localStorage.setItem("toca-repeat", repeat); paintNow(byId(curId) || {}); toast(repeat === "off" ? "Repetir desligado" : repeat === "all" ? "Repetir tudo 🔁" : "Repetir uma 🔂"); };
+audio.onplay = () => { $("playBtn").textContent = "⏸️"; $("miniPlay").textContent = "⏸️"; };
+audio.onpause = () => { $("playBtn").textContent = "▶️"; $("miniPlay").textContent = "▶️"; };
+audio.onended = next;
+audio.ontimeupdate = () => {
+  if (!audio.duration) return;
+  $("seek").value = Math.floor((audio.currentTime / audio.duration) * 1000);
+  $("miniTrack").firstElementChild.style.width = (audio.currentTime / audio.duration) * 100 + "%";
+  $("tCur").textContent = fmt(audio.currentTime);
+};
+audio.onloadedmetadata = () => { $("tDur").textContent = fmt(audio.duration); };
+$("seek").oninput = () => { if (audio.duration) audio.currentTime = ($("seek").value / 1000) * audio.duration; };
+const fmt = (s) => { s = Math.floor(s || 0); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+/* ---------- equalizador ---------- */
+$("eqBtn").onclick = () => { ensureEq(); $("eqPanel").classList.toggle("on"); };
+$("eqBtnHome").onclick = () => { ensureEq(); $("np").classList.add("on"); $("eqPanel").classList.add("on"); };
+[["eqLow", "low", "eqLowV"], ["eqMid", "mid", "eqMidV"], ["eqHigh", "high", "eqHighV"]].forEach(([inp, key, lab]) => {
+  $(inp).oninput = () => {
+    const v = parseFloat($(inp).value);
+    if (eqNodes) eqNodes[key].gain.value = v;
+    $(lab).textContent = v + "dB";
+    localStorage.setItem("toca-eq-" + key, v);
+  };
+});
+
+/* ---------- importar ---------- */
+async function importFiles(files) {
+  let n = 0;
+  for (const f of files) {
+    if (!f.type.startsWith("audio") && !/\.(mp3|m4a|ogg|wav|flac|aac)$/i.test(f.name)) continue;
+    const tags = await parseTags(f);
+    await dbPut("songs", { id: uid(), title: tags.title, artist: tags.artist, album: tags.album, blob: f, cover: tags.cover, fav: false, addedAt: Date.now() });
+    n++;
+  }
+  await refresh();
+  toast(n + " música" + (n === 1 ? "" : "s") + " adicionada" + (n === 1 ? "" : "s") + "! 🎵");
+}
+$("addBtn").onclick = () => $("filePick").click();
+$("addBtn2").onclick = () => $("filePick").click();
+$("filePick").onchange = (e) => { importFiles([...e.target.files]); e.target.value = ""; };
+
+/* ---------- playlists ---------- */
+let modalYes = null;
+function askModal(title, placeholder, cb) {
+  $("modalTitle").textContent = title;
+  $("modalInput").value = "";
+  $("modalInput").placeholder = placeholder || "";
+  modalYes = cb;
+  $("modal").classList.add("on");
+  setTimeout(() => $("modalInput").focus(), 50);
+}
+$("modalOk").onclick = () => { const v = $("modalInput").value.trim(); $("modal").classList.remove("on"); if (modalYes && v) modalYes(v); };
+$("modalNo").onclick = () => { modalYes = null; $("modal").classList.remove("on"); };
+$("newPlBtn").onclick = () => askModal("Nova playlist", "Nome da playlist", async (name) => { await dbPut("playlists", { id: uid(), name, songIds: [] }); await refresh(); toast("Playlist criada! 📂"); });
+
+/* ---------- sheet ---------- */
+let sheetSong = null;
+function openSheet(song) {
+  sheetSong = song;
+  $("sheetTitle").textContent = song.title + " — " + song.artist;
+  $("sheet").classList.add("on");
+}
+$("sheet").onclick = (e) => { if (e.target === $("sheet")) $("sheet").classList.remove("on"); };
+$("shPlay").onclick = () => { playSong(sheetSong.id); $("sheet").classList.remove("on"); };
+$("shQueue").onclick = () => { if (!queue.length) { playSong(sheetSong.id); } else { queue.splice(qPos + 1, 0, sheetSong.id); toast("Vai tocar em seguida ➕"); } $("sheet").classList.remove("on"); };
+$("shFav").onclick = async () => { sheetSong.fav = !sheetSong.fav; await dbPut("songs", sheetSong); await refresh(); toast(sheetSong.fav ? "Favoritada 💚" : "Desfavoritada"); $("sheet").classList.remove("on"); };
+$("shPl").onclick = async () => {
+  $("sheet").classList.remove("on");
+  if (!playlists.length) { askModal("Criar playlist pra colocar a música", "Nome da playlist", async (name) => { const pl = { id: uid(), name, songIds: [sheetSong.id] }; await dbPut("playlists", pl); await refresh(); toast("Feito! 📂"); }); return; }
+  const names = playlists.map((p) => p.name);
+  askModal("Adicionar à playlist (digite o número)", names.map((n, i) => (i + 1) + "=" + n).join(", "), async (v) => {
+    const idx = parseInt(v) - 1;
+    if (isNaN(idx) || !playlists[idx]) { toast("Número inválido 😅"); return; }
+    const pl = playlists[idx];
+    if (!pl.songIds.includes(sheetSong.id)) pl.songIds.push(sheetSong.id);
+    await dbPut("playlists", pl);
+    await refresh();
+    toast("Adicionada em " + pl.name + "! 📂");
+  });
+};
+$("shDel").onclick = async () => {
+  await dbDel("songs", sheetSong.id);
+  for (const pl of playlists) { if (pl.songIds.includes(sheetSong.id)) { pl.songIds = pl.songIds.filter((x) => x !== sheetSong.id); await dbPut("playlists", pl); } }
+  if (curId === sheetSong.id) { audio.pause(); audio.removeAttribute("src"); $("mini").classList.remove("on"); queue = []; qPos = -1; curId = null; }
+  await refresh();
+  toast("Removida 🗑️");
+  $("sheet").classList.remove("on");
+};
+
+/* ---------- listagens ---------- */
+function songRow(s, opts) {
+  const div = document.createElement("div");
+  div.className = "row";
+  const art = document.createElement("div"); art.className = "art";
+  if (s.cover) { const img = document.createElement("img"); img.src = URL.createObjectURL(s.cover); art.appendChild(img); } else art.textContent = "♪";
+  const meta = document.createElement("div"); meta.className = "meta";
+  meta.innerHTML = '<div class="t"></div><div class="a"></div>';
+  meta.querySelector(".t").textContent = (s.fav ? "💚 " : "") + s.title;
+  meta.querySelector(".a").textContent = s.artist;
+  const more = document.createElement("button"); more.className = "more"; more.textContent = "⋯";
+  more.onclick = (e) => { e.stopPropagation(); openSheet(s); };
+  div.append(art, meta, more);
+  div.onclick = () => { queue = (opts && opts.ids) || [s.id]; qPos = queue.indexOf(s.id); playIndex(qPos); };
+  return div;
+}
+function renderLists() {
+  const mk = (el, list) => { el.innerHTML = ""; if (!list.length) { el.innerHTML = '<p style="color:#666;font-size:13px">Nada aqui ainda.</p>'; return; } const ids = list.map((s) => s.id); list.forEach((s) => el.appendChild(songRow(s, { ids }))); };
+  const favs = songs.filter((s) => s.fav);
+  const q = ($("searchInput").value || "").toLowerCase();
+  const filtered = songs.filter((s) => (s.title + " " + s.artist).toLowerCase().includes(q));
+  mk($("listHome"), songs);
+  mk($("listLib"), songs);
+  mk($("listSearch"), filtered);
+  const plHome = $("plHome"); plHome.innerHTML = "";
+  playlists.forEach((p) => {
+    const c = document.createElement("div"); c.className = "plist-card";
+    c.innerHTML = '<div class="cover">📂</div><div class="n"></div>';
+    c.querySelector(".n").textContent = p.name + " (" + p.songIds.length + ")";
+    c.onclick = () => { const ids = p.songIds.filter(byId); if (!ids.length) { toast("Playlist vazia 😅"); return; } queue = ids; playIndex(0); };
+    plHome.appendChild(c);
+  });
+  const plLib = $("plLib"); plLib.innerHTML = "";
+  if (!playlists.length) plLib.innerHTML = '<p style="color:#666;font-size:13px">Cria tua primeira playlist na aba Início!</p>';
+  playlists.forEach((p) => {
+    const names = p.songIds.map(byId).filter(Boolean).slice(0, 3).map((s) => s.title).join(", ") || "vazia";
+    const div = document.createElement("div"); div.className = "row";
+    div.innerHTML = '<div class="art">📂</div><div class="meta"><div class="t"></div><div class="a"></div></div><button class="more">🗑️</button>';
+    div.querySelector(".t").textContent = p.name;
+    div.querySelector(".a").textContent = names;
+    div.querySelector(".more").onclick = async (e) => { e.stopPropagation(); await dbDel("playlists", p.id); await refresh(); toast("Playlist apagada"); };
+    div.onclick = () => { const ids = p.songIds.filter(byId); if (!ids.length) { toast("Playlist vazia 😅"); return; } queue = ids; playIndex(0); };
+    plLib.appendChild(div);
+  });
+  if (favs.length && !q) {
+    const h = document.createElement("h2"); h.textContent = "💚 Favoritas";
+    const box = document.createElement("div");
+    const ids = favs.map((s) => s.id);
+    favs.forEach((s) => box.appendChild(songRow(s, { ids })));
+    $("listLib").before(h, box);
+  }
+}
+$("searchInput").oninput = renderLists;
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("#tabs button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll("#tabs button").forEach((x) => x.classList.remove("on"));
+    document.querySelectorAll(".view").forEach((v) => v.classList.remove("on"));
+    b.classList.add("on");
+    $("view-" + b.dataset.v).classList.add("on");
+  };
+});
+$("shuffleAll").onclick = () => { shuffle = true; playAll(); };
+
+/* ---------- media session ---------- */
+if ("mediaSession" in navigator) {
+  navigator.mediaSession.setActionHandler("play", () => audio.play());
+  navigator.mediaSession.setActionHandler("pause", () => audio.pause());
+  navigator.mediaSession.setActionHandler("nexttrack", next);
+  navigator.mediaSession.setActionHandler("previoustrack", prev);
+}
+
+/* ---------- boot ---------- */
+async function refresh() { songs = (await dbAll("songs")).sort((a, b) => b.addedAt - a.addedAt); playlists = await dbAll("playlists"); renderLists(); }
+(async () => {
+  await openDB();
+  await refresh();
+  const h = new Date().getHours();
+  $("greet").textContent = h < 6 ? "Boa madrugada 🌙" : h < 12 ? "Bom dia ☀️" : h < 18 ? "Boa tarde 🌤️" : "Boa noite 🌙";
+  const last = localStorage.getItem("toca-last");
+  if (last && byId(last)) { const s = byId(last); $("miniTitle").textContent = s.title; $("miniArtist").textContent = s.artist; $("mini").classList.add("on"); curId = last; }
+})();
+</script>
+</body>
+</html>
