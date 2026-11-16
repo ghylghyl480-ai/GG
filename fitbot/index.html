@@ -146,6 +146,42 @@
       }
       return null;
     }
+
+    // ---- DADO REAL: Open Food Facts (busca calorias de verdade) ----
+    const FOOD_RE = /kcal|caloria|comid|comi\s|comer|comeu|aliment|refeicao|janta|almoc|cafe|lanche|receita|gordura|proteina|carboidrat|acucar|doce|fruta|verdura|legume|carne|frango|ovo|arroz|feijao|macarrao|pao\b|queijo|leite|biscoito|bolacha|pizza|hamburguer|salada|sopa|suco|refrigerante|cerveja|vinho|chocolate|sorvete|cuscuz|tapioca|manteiga|presunto|sardinha|atum|banana|maca|laranja|batata|mandioca/i;
+    const STOP = /\b(eu|comi|comer|comeu|hoje|ontem|quanto|tem|de|do|da|um|uma|uns|umas|o|a|os|as|e|isso|aquilo|mais|menos|calorias|kcal|cal|tem|tinha|eram|era|pra|para|no|na|em|com|meu|minha)\b/gi;
+    function buscaOFF(termo) {
+      const urls = [
+        "https://world.openfoodfacts.org/cgi/search.pl?search_terms=" + encodeURIComponent(termo) + "&search_simple=1&action=process&json=1&page_size=5&fields=product_name,brands,nutriments",
+        "https://world.openfoodfacts.org/api/v2/search?product_name_br=" + encodeURIComponent(termo) + "&page_size=5&fields=product_name,brands,nutriments"
+      ];
+      return (async () => {
+        for (const u of urls) {
+          try {
+            const ctl = new AbortController();
+            const t = setTimeout(() => ctl.abort(), 7000);
+            const r = await fetch(u, { signal: ctl.signal });
+            clearTimeout(t);
+            if (!r.ok) continue;
+            const j = await r.json();
+            for (const p of (j.products || [])) {
+              const kcal = p.nutriments && p.nutriments["energy-kcal_100g"];
+              if (kcal && p.product_name) {
+                return { nome: p.product_name, marcas: (p.brands || "").split(",")[0], kcal: Math.round(kcal) };
+              }
+            }
+          } catch (e) {}
+        }
+        return null;
+      })();
+    }
+    async function dadoReal(text) {
+      const limpo = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (!FOOD_RE.test(limpo)) return null;
+      const termo = limpo.replace(STOP, " ").replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+      if (!termo || termo.length < 3) return null;
+      return buscaOFF(termo.slice(0, 60));
+    }
     const SYSTEM = [
       "Você é o FitBot IA, um amigo brasileiro que ajuda com dieta de verdade, falando português informal (tipo 'beleza', 'firmeza').",
       "REGRAS:",
@@ -272,6 +308,10 @@
       $("input").value = "";
       $("send").disabled = true;
 
+      const real = await dadoReal(text);
+      if (real) {
+        addMsg("assistant", "\ud83d\udd0d Dado real (Open Food Facts): " + real.nome + (real.marcas ? " (" + real.marcas + ")" : "") + " \u2014 " + real.kcal + " kcal/100g");
+      }
       const bubble = addMsg("assistant", "pensando...", "assistant typing");
       let full = "";
       try {
@@ -286,7 +326,7 @@
             headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
             body: JSON.stringify({
               model: model,
-              messages: [{ role: "system", content: SYSTEM + "\n\n" + ctxLine() }, ...history.slice(-20)],
+              messages: [{ role: "system", content: SYSTEM + "\n\n" + ctxLine() + (real ? "\n\nDADO REAL (Open Food Facts \u2014 use ESSE valor em vez de estimar): " + real.nome + (real.marcas ? " (" + real.marcas + ")" : "") + " tem " + real.kcal + " kcal por 100g." : "") }, ...history.slice(-20)],
               stream: true,
             }),
           });
