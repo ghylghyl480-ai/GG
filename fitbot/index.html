@@ -71,6 +71,10 @@
       padding: 14px; border: 0; border-radius: 10px; background: #1a9e4b;
       color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
     }
+    #wipeBtn {
+      padding: 12px; border: 1px solid #5b2a2a; border-radius: 10px;
+      background: transparent; color: #e08080; font-size: 14px; cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -96,6 +100,7 @@
     Ou Mistral: <a href="https://console.mistral.ai" target="_blank" rel="noopener">console.mistral.ai</a> → API Keys.</p>
     <input id="keyInput" type="password" placeholder="Cole sua chave OpenRouter (sk-or-...) ou Mistral" />
     <button id="saveKey">Salvar e começar</button>
+    <button id="wipeBtn">🧹 Limpar dados do FitBot</button>
   </div>
   <div id="chat"></div>
   <form id="form">
@@ -226,6 +231,25 @@
       else localStorage.setItem("mistral-key", k);
       orModel = null;
       showSetup(false);
+    };
+
+    let wipeArmed = false;
+    $("wipeBtn").onclick = async () => {
+      if (!wipeArmed) {
+        wipeArmed = true;
+        $("wipeBtn").textContent = "Tem certeza? Toca de novo pra apagar tudo";
+        setTimeout(() => { wipeArmed = false; $("wipeBtn").textContent = "🧹 Limpar dados do FitBot"; }, 4000);
+        return;
+      }
+      ["fitbot-goal", "fitbot-eaten", "fitbot-history", "fitbot-model", "openrouter-key", "mistral-key"].forEach((k) => localStorage.removeItem(k));
+      orModel = null;
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      } catch (e) {}
+      location.reload();
     };
 
     async function send(text) {
