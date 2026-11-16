@@ -62,6 +62,11 @@
   </div>
 
   <div class="card">
+    <div class="lbl">🎨 Qualidade das imagens</div>
+    <select id="imgModel">
+      <option value="flux">✨ Bonita (flux — melhor qualidade)</option>
+      <option value="turbo">⚡ Rápida (turbo — mais veloz)</option>
+    </select>
     <div class="lbl">🎵 Música de fundo (opcional — MP3 seu, igual no Player)</div>
     <input type="file" id="music" accept="audio/*">
     <div class="lbl">✍️ Legenda que aparece em todas as cenas</div>
@@ -154,7 +159,8 @@ function renderScenes() {
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
 function pollinationsUrl(prompt, seed) {
-  return 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt + ', vertical 9:16, cinematic, high detail') + '?width=720&height=1280&nologo=true&seed=' + seed;
+  const model = localStorage.getItem('estudio-model') || 'flux';
+  return 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt + ', vertical 9:16, cinematic, high detail') + '?width=720&height=1280&nologo=true&model=' + model + '&seed=' + seed;
 }
 function loadSceneImg(img, sc) {
   if (sc._url) { img.src = sc._url; return; }
@@ -198,6 +204,14 @@ function onSceneInput(e) {
   if (f === 'text') sc.text = e.target.value;
   if (f === 'dur') { sc.dur = +e.target.value; e.target.parentElement.querySelector('.durv').textContent = sc.dur + 's'; }
 }
+
+$('imgModel').value = localStorage.getItem('estudio-model') || 'flux';
+$('imgModel').onchange = e => {
+  localStorage.setItem('estudio-model', e.target.value);
+  scenes.forEach(s => { s._url = null; });
+  renderScenes();
+  toast(e.target.value === 'flux' ? 'Qualidade Bonita selecionada ✨' : 'Qualidade Rápida selecionada ⚡');
+};
 
 $('btnAdd').onclick = () => { scenes.push(newScene('')); renderScenes(); window.scrollTo(0, document.body.scrollHeight); };
 $('btnSave').onclick = () => {
