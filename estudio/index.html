@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Estúdio de Cortes</title>
+<meta name="theme-color" content="#0c1211">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root { --bg:#0c1211; --card:#141d1b; --line:#233230; --txt:#e8f0ee; --mut:#8fa8a2; --acc:#0d9488; --acc2:#14b8a6; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,sans-serif; padding-bottom:90px; }
+  header { padding:14px 16px 6px; display:flex; align-items:center; gap:10px; }
+  header h1 { font-size:19px; margin:0; }
+  header span { color:var(--mut); font-size:12px; }
+  .wrap { padding:8px 12px; max-width:520px; margin:0 auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; margin:10px 0; }
+  .scene { border:1px solid var(--line); border-radius:12px; padding:10px; margin:10px 0; background:#101816; }
+  .scene img { width:100%; border-radius:8px; display:block; background:#0a0f0e; min-height:120px; object-fit:cover; }
+  input, textarea, select { width:100%; background:#0a0f0e; border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:10px; font-size:14px; margin:6px 0; }
+  textarea { resize:vertical; min-height:54px; }
+  button { border:none; border-radius:9px; padding:11px 14px; font-size:14px; font-weight:700; cursor:pointer; background:#1c2a27; color:var(--txt); }
+  button:active { transform:scale(.97); }
+  .btn-acc { background:var(--acc); color:#fff; }
+  .btn-del { background:#7f1d1d; color:#fff; padding:8px 10px; font-size:12px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .row button { flex:1; }
+  .lbl { font-size:12px; color:var(--mut); margin-top:6px; }
+  #preview { width:100%; border-radius:12px; display:block; background:#000; }
+  .fab { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:490px; display:flex; gap:8px; }
+  .fab button { flex:1; padding:14px; font-size:15px; }
+  .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.72); display:none; align-items:center; justify-content:center; z-index:50; padding:20px; }
+  .modal-bg.on { display:flex; }
+  .modal { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; width:100%; max-width:360px; }
+  .modal h3 { margin:0 0 10px; font-size:16px; }
+  .toast { position:fixed; bottom:86px; left:50%; transform:translateX(-50%); background:#052e2b; color:#99f6e4; border:1px solid var(--acc); padding:10px 16px; border-radius:99px; font-size:13px; opacity:0; transition:.3s; pointer-events:none; z-index:60; max-width:90%; text-align:center; }
+  .toast.on { opacity:1; }
+  .chip { display:inline-block; background:#0a0f0e; border:1px solid var(--line); color:var(--mut); border-radius:99px; padding:4px 10px; font-size:12px; margin:2px; }
+  .rec-badge { color:#f87171; font-weight:800; font-size:13px; display:none; }
+  .rec-badge.on { display:block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎬 Estúdio de Cortes</h1>
+  <span>vídeo original seu, sem copyright</span>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <span class="rec-badge" id="recBadge">⏺ GRAVANDO... não troque de aba!</span>
+    <canvas id="preview" width="720" height="1280"></canvas>
+    <div class="row" style="margin-top:8px">
+      <button id="btnPlay">▶️ Prévia</button>
+      <button id="btnRec" class="btn-acc">⏺ Gravar vídeo</button>
+    </div>
+    <div id="dl" style="display:none;margin-top:10px;text-align:center">
+      <a id="dlLink" download="meu-corte.webm" style="color:var(--acc2);font-weight:800">⬇️ Baixar vídeo gravado</a>
+      <div class="lbl">webm roda no WhatsApp, status e galeria</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">🎵 Música de fundo (opcional — MP3 seu, igual no Player)</div>
+    <input type="file" id="music" accept="audio/*">
+    <div class="lbl">✍️ Legenda que aparece em todas as cenas</div>
+    <input type="text" id="legend" placeholder="Ex: 3 fatos que ninguém te conta..." maxlength="80">
+  </div>
+
+  <div id="scenes"></div>
+
+  <div class="row">
+    <button id="btnAdd">➕ Adicionar cena</button>
+  </div>
+  <div class="lbl" style="text-align:center;margin:14px 0">As imagens são geradas por IA (Pollinations, grátis). O vídeo é 100% montado aqui no seu aparelho.</div>
+</div>
+
+<div class="fab">
+  <button id="btnSave">💾 Salvar</button>
+  <button id="btnRec2" class="btn-acc">⏺ Gravar</button>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 id="mTitle"></h3>
+    <div id="mBody" style="font-size:14px;color:var(--mut);line-height:1.5"></div>
+    <div id="mInputWrap" style="display:none"><input id="mInput"></div>
+    <div class="row" style="margin-top:14px">
+      <button id="mCancel">Cancelar</button>
+      <button id="mOk" class="btn-acc">OK</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let scenes = [];
+let musicUrl = null;
+
+try {
+  const saved = JSON.parse(localStorage.getItem('estudio-project') || 'null');
+  if (saved && saved.scenes) { scenes = saved.scenes; if (saved.legend) $('legend').value = saved.legend; }
+} catch(e) {}
+if (!scenes.length) scenes = [ newScene('cidade de noite, estilo cinema, luzes neon'), newScene('estrada ao amanhecer, névoa, cinematográfico') ];
+
+function newScene(prompt) { return { prompt: prompt || '', text: '', dur: 4 }; }
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2600);
+}
+
+function askModal(title, body, withInput, defaultVal) {
+  return new Promise(res => {
+    $('mTitle').textContent = title; $('mBody').textContent = body;
+    $('mInputWrap').style.display = withInput ? 'block' : 'none';
+    $('mInput').value = defaultVal || '';
+    $('modalBg').classList.add('on');
+    const done = v => { $('modalBg').classList.remove('on'); $('mOk').onclick = $('mCancel').onclick = null; res(v); };
+    $('mOk').onclick = () => done(withInput ? $('mInput').value.trim() : true);
+    $('mCancel').onclick = () => done(null);
+    if (withInput) $('mInput').focus();
+  });
+}
+
+function renderScenes() {
+  const box = $('scenes'); box.innerHTML = '';
+  scenes.forEach((sc, i) => {
+    const d = document.createElement('div'); d.className = 'scene';
+    d.innerHTML = `
+      <div class="lbl">Cena ${i + 1}</div>
+      <img data-idx="${i}" alt="">
+      <div class="lbl">Descrição da imagem (a IA gera)</div>
+      <input data-f="prompt" data-i="${i}" value="${esc(sc.prompt)}" placeholder="Ex: carro antigo na estrada, pôr do sol">
+      <div class="lbl">Texto grande desta cena (opcional)</div>
+      <input data-f="text" data-i="${i}" value="${esc(sc.text)}" placeholder="Ex: FATO 1" maxlength="60">
+      <div class="lbl">Duração: <b class="durv">${sc.dur}s</b></div>
+      <input type="range" min="2" max="10" step="1" value="${sc.dur}" data-f="dur" data-i="${i}">
+      <div class="row">
+        <button data-act="gen" data-i="${i}">🎨 Gerar imagem</button>
+        <button data-act="up" data-i="${i}">⬆️</button>
+        <button data-act="down" data-i="${i}">⬇️</button>
+        <button data-act="del" data-i="${i}" class="btn-del">🗑</button>
+      </div>`;
+    box.appendChild(d);
+    loadSceneImg(d.querySelector('img'), sc);
+  });
+  box.onclick = onSceneClick;
+  box.oninput = onSceneInput;
+}
+
+function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+function pollinationsUrl(prompt, seed) {
+  return 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt + ', vertical 9:16, cinematic, high detail') + '?width=720&height=1280&nologo=true&seed=' + seed;
+}
+function loadSceneImg(img, sc) {
+  if (sc._url) { img.src = sc._url; return; }
+  if (!sc.prompt) { img.removeAttribute('src'); return; }
+  sc._seed = sc._seed || Math.floor(Math.random() * 99999);
+  sc._url = pollinationsUrl(sc.prompt, sc._seed);
+  img.src = sc._url;
+}
+
+async function onSceneClick(e) {
+  const b = e.target.closest('button'); 
+  if (b) {
+    const i = +b.dataset.i, act = b.dataset.act;
+    if (act === 'gen') {
+      const sc = scenes[i];
+      if (!sc.prompt) return toast('Escreve a descrição da imagem primeiro!');
+      sc._seed = Math.floor(Math.random() * 99999); sc._url = null;
+      const img = document.querySelector(`img[data-idx="${i}"]`);
+      img.src = pollinationsUrl(sc.prompt, sc._seed);
+      sc._url = img.src;
+      toast('Gerando imagem da cena ' + (i + 1) + '...');
+    } else if (act === 'del') {
+      if (scenes.length > 1) { scenes.splice(i, 1); renderScenes(); }
+      else toast('Precisa ter pelo menos 1 cena!');
+    } else if (act === 'up' && i > 0) { [scenes[i - 1], scenes[i]] = [scenes[i], scenes[i - 1]]; renderScenes(); }
+    else if (act === 'down' && i < scenes.length - 1) { [scenes[i + 1], scenes[i]] = [scenes[i], scenes[i + 1]]; renderScenes(); }
+    return;
+  }
+  const img = e.target.closest('img');
+  if (img && !img.src) {
+    const i = +img.dataset.idx, sc = scenes[i];
+    const p = await askModal('Imagem da cena ' + (i + 1), 'Escreva a descrição e eu gero com IA:', true, sc.prompt);
+    if (p) { sc.prompt = p; loadSceneImg(img, sc); }
+  }
+}
+
+function onSceneInput(e) {
+  const f = e.target.dataset.f; if (!f) return;
+  const i = +e.target.dataset.i, sc = scenes[i];
+  if (f === 'prompt') { sc.prompt = e.target.value; sc._url = null; }
+  if (f === 'text') sc.text = e.target.value;
+  if (f === 'dur') { sc.dur = +e.target.value; e.target.parentElement.querySelector('.durv').textContent = sc.dur + 's'; }
+}
+
+$('btnAdd').onclick = () => { scenes.push(newScene('')); renderScenes(); window.scrollTo(0, document.body.scrollHeight); };
+$('btnSave').onclick = () => {
+  scenes.forEach(s => { delete s._url; });
+  localStorage.setItem('estudio-project', JSON.stringify({ legend: $('legend').value, scenes }));
+  renderScenes(); toast('Projeto salvo! 💾');
+};
+
+const cv = $('preview'), ctx = cv.getContext('2d');
+
+function drawScene(sc, progress) {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
+  const img = sc._img;
+  if (img && img.complete && img.naturalWidth) {
+    const z = 1.08 - 0.08 * progress;
+    const w = cv.width * z, h = cv.height * z;
+    const ox = (cv.width - w) / 2, oy = (cv.height - h) / 2;
+    ctx.drawImage(img, ox, oy, w, h);
+  } else {
+    ctx.fillStyle = '#101816'; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = '#8fa8a2'; ctx.font = '28px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Gerando imagem...', cv.width / 2, cv.height / 2);
+  }
+  const big = sc.text, leg = $('legend').value.trim();
+  ctx.textAlign = 'center';
+  if (big) {
+    ctx.font = '800 72px system-ui';
+    const y = cv.height * 0.42;
+    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    const tw = ctx.measureText(big).width;
+    ctx.fillRect(cv.width / 2 - tw / 2 - 24, y - 64, tw + 48, 92);
+    ctx.fillStyle = '#fff'; ctx.fillText(big, cv.width / 2, y);
+  }
+  if (leg) {
+    ctx.font = '600 40px system-ui';
+    const words = leg.split(' '); const lines = []; let line = '';
+    words.forEach(w => {
+      const t = line ? line + ' ' + w : w;
+      if (ctx.measureText(t).width > cv.width - 120 && line) { lines.push(line); line = w; } else line = t;
+    });
+    if (line) lines.push(line);
+    const bh = lines.length * 52 + 36;
+    ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(0, cv.height - bh - 60, cv.width, bh);
+    ctx.fillStyle = '#99f6e4';
+    lines.forEach((l, li) => ctx.fillText(l, cv.width / 2, cv.height - bh - 20 + li * 52));
+  }
+}
+
+function preloadImages() {
+  return Promise.all(scenes.map(sc => new Promise(res => {
+    if (!sc.prompt) return res();
+    if (!sc._url) { sc._seed = sc._seed || Math.floor(Math.random() * 99999); sc._url = pollinationsUrl(sc.prompt, sc._seed); }
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = () => { sc._img = im; res(); };
+    im.onerror = () => res();
+    im.src = sc._url;
+  })));
+}
+
+let playing = false;
+async function runTimeline(record) {
+  if (playing) return;
+  const totalDur = scenes.reduce((a, s) => a + s.dur, 0);
+  if (totalDur > 90) { toast('Máximo de 90 segundos no total! Diminui as cenas.'); return; }
+  playing = true;
+  $('btnPlay').disabled = $('btnRec').disabled = $('btnRec2').disabled = true;
+  await preloadImages();
+  let rec = null, audioCtx = null, dest = null, audioEl = null;
+  if (record) {
+    $('recBadge').classList.add('on');
+    const stream = cv.captureStream(30);
+    if (musicUrl) {
+      try {
+        audioEl = new Audio(musicUrl); audioEl.loop = true;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        dest = audioCtx.createMediaStreamDestination();
+        const src = audioCtx.createMediaElementSource(audioEl);
+        src.connect(dest); src.connect(audioCtx.destination);
+        await audioEl.play();
+        dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+      } catch(e) { toast('Música não pôde ser usada: ' + e.message); }
+    }
+    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+    rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4000000 });
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    const done = new Promise(res => rec.onstop = res);
+    rec.start(500);
+    await animate();
+    rec.stop(); await done;
+    if (audioEl) audioEl.pause();
+    if (audioCtx) audioCtx.close();
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    $('dlLink').href = url;
+    $('dl').style.display = 'block';
+    if (navigator.canShare && navigator.canShare({ files: [new File([blob], 'c.webm', { type: 'video/webm' })] })) {
+      try { await navigator.share({ files: [new File([blob], 'meu-corte.webm', { type: 'video/webm' })], title: 'Meu corte' }); } catch(e) {}
+    }
+    toast('Vídeo gravado! 🎉 Baixa aí embaixo');
+    $('recBadge').classList.remove('on');
+  } else {
+    await animate();
+  }
+  playing = false;
+  $('btnPlay').disabled = $('btnRec').disabled = $('btnRec2').disabled = false;
+
+  async function animate() {
+    for (const sc of scenes) {
+      await new Promise(res => {
+        const t0 = performance.now(), dur = sc.dur * 1000;
+        (function frame(t) {
+          const p = Math.min(1, (t - t0) / dur);
+          drawScene(sc, p);
+          if (p < 1 && (playing || true)) requestAnimationFrame(frame); else res();
+        })(t0);
+      });
+    }
+  }
+}
+
+$('btnPlay').onclick = () => runTimeline(false);
+$('btnRec').onclick = $('btnRec2').onclick = () => runTimeline(true);
+
+$('music').onchange = e => {
+  const f = e.target.files[0];
+  if (f) { if (musicUrl) URL.revokeObjectURL(musicUrl); musicUrl = URL.createObjectURL(f); toast('Música: ' + f.name); }
+};
+
+renderScenes();
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
