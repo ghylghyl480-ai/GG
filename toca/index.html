@@ -167,7 +167,11 @@
     pointer-events: none; white-space: nowrap;
   }
   #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
-</style>
+
+    /* CSS PRO TIPS (github.com/AllThingsSmitty/css-protips) */
+    button, a, input, select, textarea, [role="button"] { touch-action: manipulation; }
+    html, body { overscroll-behavior-y: contain; }
+  </style>
 </head>
 <body>
 

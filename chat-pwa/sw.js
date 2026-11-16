@@ -1,4 +1,4 @@
-const CACHE = "meu-chat-v2";
+const CACHE = "meu-chat-v3";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
