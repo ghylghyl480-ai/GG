@@ -102,6 +102,9 @@
     Para funcionar: conta grátis em <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a> → Keys → Create Key.</p>
     <input id="keyInput" type="password" placeholder="Cole sua chave OpenRouter (sk-or-...)" />
     <button id="saveKey">Salvar chave</button>
+    <p style="color:#b79aec;font-size:12.5px;margin:14px 0 4px">🍌 <b>Opcional — imagens Nano Banana (melhores):</b> chave grátis em <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a> → Get API key.</p>
+    <input id="geminiInput" type="password" placeholder="Cole sua chave Gemini (AIza...) — opcional" />
+    <button id="saveGemini">Salvar chave Gemini</button>
     <div id="botList"></div>
     <button id="startChat">Montar meu time 🚀</button>
   </div>
@@ -276,7 +279,32 @@
       const k = $("keyInput").value.trim();
       if (!k) return;
       localStorage.setItem("openrouter-key", k);
+      toast("Chave OpenRouter salva!");
     };
+    $("saveGemini").onclick = () => {
+      const k = $("geminiInput").value.trim();
+      if (!k) return;
+      localStorage.setItem("gemini-key", k);
+      toast("Chave Gemini salva! 🍌");
+    };
+
+    async function geminiImage(prompt) {
+      const key = localStorage.getItem("gemini-key");
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + encodeURIComponent(key), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => null);
+        throw new Error((j && j.error && j.error.message) || ("HTTP " + r.status));
+      }
+      const j = await r.json();
+      const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
+      const imgPart = parts.find((p) => p.inlineData && p.inlineData.data);
+      if (!imgPart) throw new Error("A IA não retornou imagem (o pedido pode ter sido bloqueado).");
+      return "data:" + (imgPart.inlineData.mimeType || "image/png") + ";base64," + imgPart.inlineData.data;
+    }
     $("startChat").onclick = () => {
       if (!getKey()) { toast("Cola a chave do OpenRouter primeiro!"); return; }
       if (selected.length < 2) { toast("Escolhe pelo menos 2 IAs pro time!"); return; }
@@ -316,6 +344,15 @@
     function addImage(url, cap) {
       const div = document.createElement("div");
       div.className = "msg image";
+      if (!url) {
+        const ph = document.createElement("div");
+        ph.className = "cap";
+        ph.textContent = "🖼 " + cap;
+        div.append(ph);
+        $("chat").appendChild(div);
+        $("chat").scrollTop = $("chat").scrollHeight;
+        return div;
+      }
       const img = document.createElement("img");
       img.src = url;
       img.alt = cap;
@@ -331,13 +368,28 @@
     function load() {
       try { history = JSON.parse(localStorage.getItem("time-history") || "[]"); } catch { history = []; }
       history.forEach((m) => {
-        if (m.kind === "image") addImage(m.url, m.content);
+        if (m.kind === "image") addImage(m.url, m.content + (m.expired && !m.url ? " (imagem antiga não salva)" : ""));
         else addMsg(m.kind, m.name, m.content, m.color);
       });
       if (history.length) $("chat").scrollTop = $("chat").scrollHeight;
       if (researchOn()) $("webBtn").classList.add("on");
     }
-    function save() { localStorage.setItem("time-history", JSON.stringify(history.slice(-200))); }
+    function save() {
+      const h = history.slice(-200);
+      let dataCount = 0;
+      for (let i = h.length - 1; i >= 0; i--) {
+        if (h[i].kind === "image" && h[i].url && h[i].url.startsWith("data:")) {
+          dataCount++;
+          if (dataCount > 3) { h[i].url = null; h[i].expired = true; }
+        }
+      }
+      try {
+        localStorage.setItem("time-history", JSON.stringify(h));
+      } catch (e) {
+        h.forEach((m) => { if (m.url && m.url.startsWith("data:")) m.url = null; });
+        try { localStorage.setItem("time-history", JSON.stringify(h)); } catch (e2) {}
+      }
+    }
 
     function messagesFor(botId, botName) {
       const msgs = [{
@@ -435,8 +487,20 @@
     });
 
     $("imgBtn").onclick = async () => {
-      const p = await askModal("Descreva a imagem que você quer gerar (grátis):", { placeholder: "ex: um leão levantando peso na academia" });
+      const p = await askModal("Descreva a imagem que você quer gerar:", { placeholder: "ex: um leão levantando peso na academia" });
       if (!p) return;
+      if (localStorage.getItem("gemini-key")) {
+        toast("Gerando com Nano Banana 🍌 (pode demorar um pouco)...");
+        try {
+          const dataUrl = await geminiImage(p);
+          addImage(dataUrl, p);
+          history.push({ kind: "image", name: null, content: p, url: dataUrl });
+          save();
+          return;
+        } catch (e) {
+          toast("Nano Banana falhou (" + e.message + ") — usando o gerador grátis...");
+        }
+      }
       const url = IMG_API + encodeURIComponent(p) + "?width=768&height=768&nologo=true&model=flux&seed=" + Math.floor(Math.random() * 999999);
       addImage(url, p);
       history.push({ kind: "image", name: null, content: p, url });

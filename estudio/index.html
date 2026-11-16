@@ -69,6 +69,8 @@
     </select>
     <div class="lbl">🎵 Música de fundo (opcional — MP3 seu, igual no Player)</div>
     <input type="file" id="music" accept="audio/*">
+    <div class="lbl">🍌 Chave Gemini (opcional — Nano Banana, imagens melhores)</div>
+    <input type="password" id="geminiKey" placeholder="Cole aqui (AIza...) — grátis em aistudio.google.com">
     <div class="lbl">✍️ Legenda que aparece em todas as cenas</div>
     <input type="text" id="legend" placeholder="Ex: 3 fatos que ninguém te conta..." maxlength="80">
   </div>
@@ -162,12 +164,44 @@ function pollinationsUrl(prompt, seed) {
   const model = localStorage.getItem('estudio-model') || 'flux';
   return 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt + ', vertical 9:16, cinematic, high detail') + '?width=720&height=1280&nologo=true&model=' + model + '&seed=' + seed;
 }
+
+async function geminiImage(prompt) {
+  const key = localStorage.getItem('gemini-key');
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=' + encodeURIComponent(key), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt + ', vertical 9:16 composition, cinematic, high detail' }] }] }),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => null);
+    throw new Error((j && j.error && j.error.message) || ('HTTP ' + r.status));
+  }
+  const j = await r.json();
+  const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
+  const imgPart = parts.find(p => p.inlineData && p.inlineData.data);
+  if (!imgPart) throw new Error('A IA não retornou imagem (o pedido pode ter sido bloqueado).');
+  return 'data:' + (imgPart.inlineData.mimeType || 'image/png') + ';base64,' + imgPart.inlineData.data;
+}
+
+async function ensureSceneImg(sc) {
+  if (sc._url) return sc._url;
+  if (!sc.prompt) return null;
+  if (localStorage.getItem('gemini-key')) {
+    try {
+      sc._url = await geminiImage(sc.prompt);
+      return sc._url;
+    } catch (e) {
+      toast('Nano Banana falhou (' + e.message + ') — usando gerador grátis...');
+    }
+  }
+  sc._seed = sc._seed || Math.floor(Math.random() * 99999);
+  sc._url = pollinationsUrl(sc.prompt, sc._seed);
+  return sc._url;
+}
 function loadSceneImg(img, sc) {
   if (sc._url) { img.src = sc._url; return; }
   if (!sc.prompt) { img.removeAttribute('src'); return; }
-  sc._seed = sc._seed || Math.floor(Math.random() * 99999);
-  sc._url = pollinationsUrl(sc.prompt, sc._seed);
-  img.src = sc._url;
+  ensureSceneImg(sc).then(u => { if (u) img.src = u; });
 }
 
 async function onSceneClick(e) {
@@ -179,9 +213,10 @@ async function onSceneClick(e) {
       if (!sc.prompt) return toast('Escreve a descrição da imagem primeiro!');
       sc._seed = Math.floor(Math.random() * 99999); sc._url = null;
       const img = document.querySelector(`img[data-idx="${i}"]`);
-      img.src = pollinationsUrl(sc.prompt, sc._seed);
-      sc._url = img.src;
-      toast('Gerando imagem da cena ' + (i + 1) + '...');
+      img.removeAttribute('src');
+      const useGemini = !!localStorage.getItem('gemini-key');
+      toast(useGemini ? 'Gerando com Nano Banana 🍌...' : 'Gerando imagem da cena ' + (i + 1) + '...');
+      ensureSceneImg(sc).then(u => { if (u) img.src = u; });
     } else if (act === 'del') {
       if (scenes.length > 1) { scenes.splice(i, 1); renderScenes(); }
       else toast('Precisa ter pelo menos 1 cena!');
@@ -204,6 +239,13 @@ function onSceneInput(e) {
   if (f === 'text') sc.text = e.target.value;
   if (f === 'dur') { sc.dur = +e.target.value; e.target.parentElement.querySelector('.durv').textContent = sc.dur + 's'; }
 }
+
+$('geminiKey').value = localStorage.getItem('gemini-key') || '';
+$('geminiKey').onchange = e => {
+  const k = e.target.value.trim();
+  if (k) { localStorage.setItem('gemini-key', k); toast('Chave Gemini salva! 🍌 Nano Banana ativado'); }
+  else { localStorage.removeItem('gemini-key'); toast('Chave Gemini removida — voltando pro gerador grátis'); }
+};
 
 $('imgModel').value = localStorage.getItem('estudio-model') || 'flux';
 $('imgModel').onchange = e => {
@@ -261,13 +303,14 @@ function drawScene(sc, progress) {
 }
 
 function preloadImages() {
-  return Promise.all(scenes.map(sc => new Promise(res => {
+  return Promise.all(scenes.map(async sc => new Promise(async res => {
     if (!sc.prompt) return res();
-    if (!sc._url) { sc._seed = sc._seed || Math.floor(Math.random() * 99999); sc._url = pollinationsUrl(sc.prompt, sc._seed); }
-    const im = new Image(); im.crossOrigin = 'anonymous';
+    const u = await ensureSceneImg(sc);
+    if (!u) return res();
+    const im = new Image();
     im.onload = () => { sc._img = im; res(); };
     im.onerror = () => res();
-    im.src = sc._url;
+    im.src = u;
   })));
 }
 
