@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Toca Aí</title>
+<meta name="description" content="Toca Aí — player de música estilo Spotify para suas MP3s, offline, com playlists e equalizador." />
 <meta name="theme-color" content="#121212" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" href="icons/icon-192.png" />
@@ -29,13 +30,15 @@
     border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700;
     border: 0; color: #fff; text-align: left; cursor: pointer;
   }
+  .card:active { background: #2a2a2a; }
   .card .em { font-size: 26px; }
 
   .row {
-    display: flex; align-items: center; gap: 12px; padding: 8px 4px;
+    display: flex; align-items: center; gap: 12px; padding: 8px 6px;
     border-radius: 8px; cursor: pointer;
   }
-  .row:active { background: #1f1f1f; }
+  .row:active, .row.playing { background: #1f1f1f; }
+  .row.playing .meta .t { color: #1ec55e; }
   .art {
     width: 48px; height: 48px; border-radius: 6px; flex: none;
     background: linear-gradient(135deg, #2a4d33, #1f1f1f);
@@ -46,7 +49,7 @@
   .meta { flex: 1; min-width: 0; }
   .meta .t { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .meta .a { font-size: 13px; color: #a7a7a7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row .more { background: none; border: 0; color: #a7a7a7; font-size: 20px; padding: 8px; }
+  .row .more { background: none; border: 0; color: #a7a7a7; font-size: 20px; padding: 8px; cursor: pointer; }
 
   .plist-scroller { display: flex; gap: 12px; overflow-x: auto; padding: 4px 0 8px; }
   .plist-card { width: 130px; flex: none; cursor: pointer; }
@@ -59,17 +62,13 @@
 
   #searchInput {
     width: 100%; padding: 12px 16px; border-radius: 24px; border: 0;
-    background: #1f1f1f; color: #fff; font-size: 15px; outline: none; margin-bottom: 12px;
+    background: #1f1f1f; color: #fff; font-size: 16px; outline: none; margin-bottom: 12px;
   }
 
   .fab {
     width: 100%; padding: 14px; border: 0; border-radius: 12px;
     background: #1ec55e; color: #06240f; font-size: 15px; font-weight: 800;
     cursor: pointer; margin-bottom: 16px;
-  }
-  .ghost {
-    width: 100%; padding: 12px; border: 1px solid #333; border-radius: 12px;
-    background: transparent; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
   }
 
   /* mini player */
@@ -82,7 +81,7 @@
   #mini .art { width: 38px; height: 38px; font-size: 18px; }
   #mini .meta { flex: 1; }
   #mini .meta .t { font-size: 13px; }
-  #mini button { background: none; border: 0; color: #fff; font-size: 22px; padding: 6px; }
+  #mini button { background: none; border: 0; color: #fff; font-size: 22px; padding: 6px; cursor: pointer; }
   #miniTrack { position: absolute; left: 12px; right: 12px; bottom: 2px; height: 2px; background: #4d4d4d; border-radius: 2px; }
   #miniTrack i { display: block; height: 100%; width: 0; background: #1ec55e; border-radius: 2px; }
 
@@ -92,7 +91,7 @@
     background: #181818; border-top: 1px solid #222; display: flex; z-index: 30;
   }
   #tabs button {
-    flex: 1; background: none; border: 0; color: #a7a7a7; font-size: 11px;
+    flex: 1; background: none; border: 0; color: #a7a7a7; font-size: 11px; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   }
   #tabs button .i { font-size: 20px; }
@@ -103,38 +102,44 @@
     position: absolute; inset: 0; background: #121212; z-index: 40;
     transform: translateY(100%); transition: transform .28s ease;
     display: flex; flex-direction: column; padding: 16px 20px calc(24px + env(safe-area-inset-bottom));
+    overflow-y: auto;
   }
   #np.on { transform: translateY(0); }
   #npHead { display: flex; justify-content: space-between; align-items: center; }
-  #npHead button { background: none; border: 0; color: #fff; font-size: 24px; padding: 8px; }
+  #npHead button { background: none; border: 0; color: #fff; font-size: 24px; padding: 8px; cursor: pointer; }
   #npArt {
-    width: min(78vw, 320px); aspect-ratio: 1; margin: 18px auto; border-radius: 12px;
+    width: min(74vw, 300px); aspect-ratio: 1; margin: 14px auto; border-radius: 12px;
     background: linear-gradient(135deg, #1e5c3a, #0d2818);
     display: flex; align-items: center; justify-content: center; font-size: 72px;
-    box-shadow: 0 14px 40px rgba(0,0,0,.6); overflow: hidden;
+    box-shadow: 0 14px 40px rgba(0,0,0,.6); overflow: hidden; flex: none;
   }
   #npArt img { width: 100%; height: 100%; object-fit: cover; }
   #npTitle { font-size: 21px; font-weight: 800; margin: 4px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #npArtist { color: #a7a7a7; font-size: 14px; }
-  #seekWrap { margin: 18px 0 4px; }
-  #seek { width: 100%; appearance: none; height: 4px; border-radius: 2px; background: #4d4d4d; outline: none; }
+  #seekWrap { margin: 16px 0 4px; }
+  #seek { width: 100%; appearance: none; height: 4px; border-radius: 2px; background: #4d4d4d; outline: none; cursor: pointer; }
   #seek::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
   #times { display: flex; justify-content: space-between; font-size: 11px; color: #a7a7a7; }
-  #npCtl { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
-  #npCtl button { background: none; border: 0; color: #fff; font-size: 26px; padding: 10px; }
+  #npCtl { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  #npCtl button { background: none; border: 0; color: #fff; font-size: 26px; padding: 10px; cursor: pointer; }
   #playBtn {
     width: 64px; height: 64px; border-radius: 50%; border: 0; background: #1ec55e;
     color: #06240f; font-size: 28px; cursor: pointer;
   }
   .modectl.on { color: #1ec55e !important; }
 
-  #eqPanel { display: none; margin-top: 8px; background: #1f1f1f; border-radius: 12px; padding: 12px 16px; }
+  #eqPanel { display: none; margin-top: 10px; background: #1f1f1f; border-radius: 12px; padding: 12px 16px; }
   #eqPanel.on { display: block; }
   #eqPanel label { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #a7a7a7; margin: 8px 0; }
   #eqPanel input { flex: 1; }
   #eqPanel b { width: 52px; text-align: right; color: #1ec55e; }
+  #eqReset { background: #2a2a2a; color: #fff; border: 0; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; margin-top: 4px; }
 
   /* sheet (menu da musica) */
+  #sheetBg {
+    position: absolute; inset: 0; background: rgba(0,0,0,.55); z-index: 49; display: none;
+  }
+  #sheetBg.on { display: block; }
   #sheet {
     position: absolute; left: 0; right: 0; bottom: -100%; z-index: 50;
     background: #1f1f1f; border-radius: 16px 16px 0 0; padding: 16px;
@@ -157,7 +162,7 @@
     color: #fff; font-size: 15px; margin-bottom: 12px;
   }
   #modalBox .btns { display: flex; gap: 10px; }
-  #modalBox .btns button { flex: 1; padding: 12px; border-radius: 8px; border: 0; font-weight: 700; }
+  #modalBox .btns button { flex: 1; padding: 12px; border-radius: 8px; border: 0; font-weight: 700; cursor: pointer; }
   #modalOk { background: #1ec55e; color: #06240f; }
   #modalNo { background: transparent; color: #a7a7a7; }
   #toast {
@@ -167,6 +172,18 @@
     pointer-events: none; white-space: nowrap;
   }
   #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* drag & drop no PC */
+  #dropZone {
+    position: fixed; inset: 0; background: rgba(30, 197, 94, .18); border: 3px dashed #1ec55e;
+    z-index: 80; display: none; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 800; pointer-events: none;
+  }
+  #dropZone.on { display: flex; }
+
+  /* CSS PRO TIPS (github.com/AllThingsSmitty/css-protips) */
+  button, a, input, select, textarea, [role="button"] { touch-action: manipulation; }
+  html, body { overscroll-behavior-y: contain; }
 </style>
 </head>
 <body>
@@ -197,6 +214,7 @@
     <button class="fab" id="addBtn2">＋ Adicionar músicas</button>
     <h2>Playlists</h2>
     <div id="plLib"></div>
+    <div id="favLibWrap"></div>
     <h2>Músicas</h2>
     <div id="listLib"></div>
   </section>
@@ -242,9 +260,11 @@
     <label> graves <input id="eqLow" type="range" min="-12" max="12" value="0" /> <b id="eqLowV">0dB</b></label>
     <label> médios <input id="eqMid" type="range" min="-12" max="12" value="0" /> <b id="eqMidV">0dB</b></label>
     <label> agudos <input id="eqHigh" type="range" min="-12" max="12" value="0" /> <b id="eqHighV">0dB</b></label>
+    <button id="eqReset">Zerar equalizador</button>
   </div>
 </div>
 
+<div id="sheetBg"></div>
 <div id="sheet">
   <h3 id="sheetTitle">Música</h3>
   <div class="row" id="shPlay"><span>▶️</span> Tocar agora</div>
@@ -261,7 +281,7 @@
 </div></div>
 
 <div id="toast"></div>
-
+<div id="dropZone">Solte suas músicas MP3 aqui 🎵</div>
 <input type="file" id="filePick" accept="audio/*" multiple style="display:none" />
 
 <script>
@@ -288,7 +308,17 @@ const dbAll = (st) => new Promise((res) => { const r = db.transaction(st).object
 
 let songs = [];
 let playlists = [];
+const coverCache = new Map();
 const byId = (id) => songs.find((s) => s.id === id);
+
+/* Capa vira URL uma vez por música (sem vazamento de RAM) */
+function getCoverUrl(song) {
+  if (!song || !song.cover) return null;
+  if (!coverCache.has(song.id)) {
+    coverCache.set(song.id, URL.createObjectURL(song.cover));
+  }
+  return coverCache.get(song.id);
+}
 
 /* ---------- ID3 ---------- */
 async function parseTags(file) {
@@ -325,8 +355,7 @@ async function parseTags(file) {
         let p = 1;
         while (p < data.length && data[p] !== 0) p++;
         const mime = String.fromCharCode(...data.slice(1, p)) || "image/jpeg";
-        p++;
-        p++;
+        p += 2;
         const enc = data[0];
         if (enc === 1 || enc === 2) { while (p + 1 < data.length && !(data[p] === 0 && data[p + 1] === 0)) p += 2; p += 2; }
         else { while (p < data.length && data[p] !== 0) p++; p++; }
@@ -355,7 +384,9 @@ function ensureEq() {
     ["low", "mid", "high"].forEach((k) => {
       const v = parseFloat(localStorage.getItem("toca-eq-" + k) || "0");
       eqNodes[k].gain.value = v;
-      $("eq" + k[0].toUpperCase() + k.slice(1)).value = v;
+      const cap = k[0].toUpperCase() + k.slice(1);
+      $("eq" + cap).value = v;
+      $("eq" + cap + "V").textContent = v + "dB";
     });
   } catch {}
 }
@@ -365,24 +396,28 @@ let curUrl = null, curId = null;
 
 function shuffled(a) { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
 
-async function playIndex(i) {
+async function playIndex(i, autoPlay = true) {
   if (!queue.length) return;
   qPos = ((i % queue.length) + queue.length) % queue.length;
   const song = byId(queue[qPos]);
   if (!song) return;
-  ensureEq();
-  if (actx && actx.state === "suspended") actx.resume();
+  if (autoPlay) {
+    ensureEq();
+    if (actx && actx.state === "suspended") actx.resume();
+  }
   if (curUrl) URL.revokeObjectURL(curUrl);
   curUrl = URL.createObjectURL(song.blob);
   curId = song.id;
   audio.src = curUrl;
-  audio.play();
+  if (autoPlay) audio.play();
   localStorage.setItem("toca-last", song.id);
   paintNow(song);
+  highlightPlaying();
   if ("mediaSession" in navigator) {
+    const cov = getCoverUrl(song);
     navigator.mediaSession.metadata = new MediaMetadata({
       title: song.title, artist: song.artist, album: song.album || "Toca Aí",
-      artwork: song.cover ? [{ src: URL.createObjectURL(song.cover), sizes: "512x512" }] : [],
+      artwork: cov ? [{ src: cov, sizes: "512x512" }] : [],
     });
   }
 }
@@ -398,15 +433,30 @@ function paintNow(song) {
   $("miniPlay").textContent = audio.paused ? "▶️" : "⏸️";
   $("npTitle").textContent = song.title;
   $("npArtist").textContent = song.artist;
-  const arts = [$("miniArt"), $("npArt")];
-  arts.forEach((a) => { a.innerHTML = ""; if (song.cover) { const img = document.createElement("img"); img.src = URL.createObjectURL(song.cover); img.onload = () => {}; a.appendChild(img); } else a.textContent = "♪"; });
+  const cov = getCoverUrl(song);
+  [$("miniArt"), $("npArt")].forEach((a) => {
+    a.innerHTML = "";
+    if (cov) { const img = document.createElement("img"); img.src = cov; a.appendChild(img); }
+    else a.textContent = "♪";
+  });
   $("shufBtn").classList.toggle("on", shuffle);
   $("repBtn").classList.toggle("on", repeat !== "off");
   $("repBtn").textContent = repeat === "one" ? "🔂" : "🔁";
 }
 
+function highlightPlaying() {
+  document.querySelectorAll(".row[data-id]").forEach((r) => {
+    r.classList.toggle("playing", r.dataset.id === curId);
+  });
+}
+
 /* ---------- controles ---------- */
-$("playBtn").onclick = () => { if (!audio.src) { playAll(); return; } audio.paused ? audio.play() : audio.pause(); };
+$("playBtn").onclick = () => {
+  if (!audio.src) { playAll(); return; }
+  ensureEq();
+  if (actx && actx.state === "suspended") actx.resume();
+  audio.paused ? audio.play() : audio.pause();
+};
 $("miniPlay").onclick = (e) => { e.stopPropagation(); $("playBtn").onclick(); };
 $("mini").onclick = () => $("np").classList.add("on");
 $("npClose").onclick = () => $("np").classList.remove("on");
@@ -427,6 +477,14 @@ audio.onloadedmetadata = () => { $("tDur").textContent = fmt(audio.duration); };
 $("seek").oninput = () => { if (audio.duration) audio.currentTime = ($("seek").value / 1000) * audio.duration; };
 const fmt = (s) => { s = Math.floor(s || 0); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
 
+/* Atalhos de teclado no PC (Espaço = Play/Pause, Setas = Avançar/Voltar) */
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.code === "Space") { e.preventDefault(); $("playBtn").onclick(); }
+  else if (e.code === "ArrowRight") next();
+  else if (e.code === "ArrowLeft") prev();
+});
+
 /* ---------- equalizador ---------- */
 $("eqBtn").onclick = () => { ensureEq(); $("eqPanel").classList.toggle("on"); };
 $("eqBtnHome").onclick = () => { ensureEq(); $("np").classList.add("on"); $("eqPanel").classList.add("on"); };
@@ -438,8 +496,16 @@ $("eqBtnHome").onclick = () => { ensureEq(); $("np").classList.add("on"); $("eqP
     localStorage.setItem("toca-eq-" + key, v);
   };
 });
+$("eqReset").onclick = () => {
+  [["eqLow", "low", "eqLowV"], ["eqMid", "mid", "eqMidV"], ["eqHigh", "high", "eqHighV"]].forEach(([inp, key, lab]) => {
+    $(inp).value = 0; $(lab).textContent = "0dB";
+    if (eqNodes) eqNodes[key].gain.value = 0;
+    localStorage.setItem("toca-eq-" + key, 0);
+  });
+  toast("Equalizador zerado 🎚️");
+};
 
-/* ---------- importar ---------- */
+/* ---------- importar (clique ou arrastar arquivo) ---------- */
 async function importFiles(files) {
   let n = 0;
   for (const f of files) {
@@ -455,6 +521,13 @@ $("addBtn").onclick = () => $("filePick").click();
 $("addBtn2").onclick = () => $("filePick").click();
 $("filePick").onchange = (e) => { importFiles([...e.target.files]); e.target.value = ""; };
 
+window.addEventListener("dragover", (e) => { e.preventDefault(); $("dropZone").classList.add("on"); });
+window.addEventListener("dragleave", (e) => { if (!e.relatedTarget) $("dropZone").classList.remove("on"); });
+window.addEventListener("drop", (e) => {
+  e.preventDefault(); $("dropZone").classList.remove("on");
+  if (e.dataTransfer?.files?.length) importFiles([...e.dataTransfer.files]);
+});
+
 /* ---------- playlists ---------- */
 let modalYes = null;
 function askModal(title, placeholder, cb) {
@@ -467,6 +540,7 @@ function askModal(title, placeholder, cb) {
 }
 $("modalOk").onclick = () => { const v = $("modalInput").value.trim(); $("modal").classList.remove("on"); if (modalYes && v) modalYes(v); };
 $("modalNo").onclick = () => { modalYes = null; $("modal").classList.remove("on"); };
+$("modalInput").onkeydown = (e) => { if (e.key === "Enter") $("modalOk").onclick(); };
 $("newPlBtn").onclick = () => askModal("Nova playlist", "Nome da playlist", async (name) => { await dbPut("playlists", { id: uid(), name, songIds: [] }); await refresh(); toast("Playlist criada! 📂"); });
 
 /* ---------- sheet ---------- */
@@ -474,14 +548,17 @@ let sheetSong = null;
 function openSheet(song) {
   sheetSong = song;
   $("sheetTitle").textContent = song.title + " — " + song.artist;
+  $("shFav").innerHTML = song.fav ? "<span>💔</span> Remover dos favoritos" : "<span>💚</span> Favoritar";
+  $("sheetBg").classList.add("on");
   $("sheet").classList.add("on");
 }
-$("sheet").onclick = (e) => { if (e.target === $("sheet")) $("sheet").classList.remove("on"); };
-$("shPlay").onclick = () => { playSong(sheetSong.id); $("sheet").classList.remove("on"); };
-$("shQueue").onclick = () => { if (!queue.length) { playSong(sheetSong.id); } else { queue.splice(qPos + 1, 0, sheetSong.id); toast("Vai tocar em seguida ➕"); } $("sheet").classList.remove("on"); };
-$("shFav").onclick = async () => { sheetSong.fav = !sheetSong.fav; await dbPut("songs", sheetSong); await refresh(); toast(sheetSong.fav ? "Favoritada 💚" : "Desfavoritada"); $("sheet").classList.remove("on"); };
+const closeSheet = () => { $("sheetBg").classList.remove("on"); $("sheet").classList.remove("on"); };
+$("sheetBg").onclick = closeSheet;
+$("shPlay").onclick = () => { playSong(sheetSong.id); closeSheet(); };
+$("shQueue").onclick = () => { if (!queue.length) { playSong(sheetSong.id); } else { queue.splice(qPos + 1, 0, sheetSong.id); toast("Vai tocar em seguida ➕"); } closeSheet(); };
+$("shFav").onclick = async () => { sheetSong.fav = !sheetSong.fav; await dbPut("songs", sheetSong); await refresh(); toast(sheetSong.fav ? "Favoritada 💚" : "Desfavoritada"); closeSheet(); };
 $("shPl").onclick = async () => {
-  $("sheet").classList.remove("on");
+  closeSheet();
   if (!playlists.length) { askModal("Criar playlist pra colocar a música", "Nome da playlist", async (name) => { const pl = { id: uid(), name, songIds: [sheetSong.id] }; await dbPut("playlists", pl); await refresh(); toast("Feito! 📂"); }); return; }
   const names = playlists.map((p) => p.name);
   askModal("Adicionar à playlist (digite o número)", names.map((n, i) => (i + 1) + "=" + n).join(", "), async (v) => {
@@ -496,19 +573,22 @@ $("shPl").onclick = async () => {
 };
 $("shDel").onclick = async () => {
   await dbDel("songs", sheetSong.id);
+  if (coverCache.has(sheetSong.id)) { URL.revokeObjectURL(coverCache.get(sheetSong.id)); coverCache.delete(sheetSong.id); }
   for (const pl of playlists) { if (pl.songIds.includes(sheetSong.id)) { pl.songIds = pl.songIds.filter((x) => x !== sheetSong.id); await dbPut("playlists", pl); } }
   if (curId === sheetSong.id) { audio.pause(); audio.removeAttribute("src"); $("mini").classList.remove("on"); queue = []; qPos = -1; curId = null; }
   await refresh();
   toast("Removida 🗑️");
-  $("sheet").classList.remove("on");
+  closeSheet();
 };
 
 /* ---------- listagens ---------- */
 function songRow(s, opts) {
   const div = document.createElement("div");
-  div.className = "row";
+  div.className = "row" + (s.id === curId ? " playing" : "");
+  div.dataset.id = s.id;
   const art = document.createElement("div"); art.className = "art";
-  if (s.cover) { const img = document.createElement("img"); img.src = URL.createObjectURL(s.cover); art.appendChild(img); } else art.textContent = "♪";
+  const cov = getCoverUrl(s);
+  if (cov) { const img = document.createElement("img"); img.src = cov; art.appendChild(img); } else art.textContent = "♪";
   const meta = document.createElement("div"); meta.className = "meta";
   meta.innerHTML = '<div class="t"></div><div class="a"></div>';
   meta.querySelector(".t").textContent = (s.fav ? "💚 " : "") + s.title;
@@ -547,12 +627,16 @@ function renderLists() {
     div.onclick = () => { const ids = p.songIds.filter(byId); if (!ids.length) { toast("Playlist vazia 😅"); return; } queue = ids; playIndex(0); };
     plLib.appendChild(div);
   });
+
+  /* Favoritas: container limpo a cada render (não duplica mais) */
+  const favWrap = $("favLibWrap");
+  favWrap.innerHTML = "";
   if (favs.length && !q) {
     const h = document.createElement("h2"); h.textContent = "💚 Favoritas";
     const box = document.createElement("div");
     const ids = favs.map((s) => s.id);
     favs.forEach((s) => box.appendChild(songRow(s, { ids })));
-    $("listLib").before(h, box);
+    favWrap.append(h, box);
   }
 }
 $("searchInput").oninput = renderLists;
@@ -584,7 +668,10 @@ async function refresh() { songs = (await dbAll("songs")).sort((a, b) => b.added
   const h = new Date().getHours();
   $("greet").textContent = h < 6 ? "Boa madrugada 🌙" : h < 12 ? "Bom dia ☀️" : h < 18 ? "Boa tarde 🌤️" : "Boa noite 🌙";
   const last = localStorage.getItem("toca-last");
-  if (last && byId(last)) { const s = byId(last); $("miniTitle").textContent = s.title; $("miniArtist").textContent = s.artist; $("mini").classList.add("on"); curId = last; }
+  if (last && byId(last)) {
+    queue = songs.map((s) => s.id);
+    playIndex(queue.indexOf(last), false);
+  }
 })();
 </script>
 </body>
