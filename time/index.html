@@ -68,18 +68,19 @@
     }
     input#input {
       flex: 1; padding: 12px; border-radius: 22px; border: 1px solid #2a2140;
-      background: #171225; color: #ece9f5; font-size: 15px; min-width: 0;
+      background: #171225; color: #ece9f5; font-size: 16px; min-width: 0;
     }
     button#send {
       width: 44px; height: 44px; border-radius: 50%; border: 0; background: #7c3aed;
       color: #fff; font-size: 17px; cursor: pointer; flex: none;
     }
     button#send:disabled { opacity: 0.5; }
+    button#send.stop { background: #e11d48; }
     #askModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); align-items: center; justify-content: center; z-index: 20; padding: 24px; }
     #askModal.show { display: flex; }
     #ask-box { background: #1f1a33; border: 1px solid #2a2140; border-radius: 14px; padding: 18px; width: 100%; max-width: 360px; }
     #ask-box h3 { margin: 0 0 12px; font-size: 16px; }
-    #ask-input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #2a2140; background: #171225; color: #fff; font-size: 15px; margin-bottom: 12px; }
+    #ask-input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #2a2140; background: #171225; color: #fff; font-size: 16px; margin-bottom: 12px; }
     #ask-row { display: flex; gap: 8px; justify-content: flex-end; }
     #ask-row button { padding: 10px 16px; border-radius: 8px; border: 0; font-size: 14px; cursor: pointer; font-weight: 700; }
     #ask-cancel { background: #2a2140; color: #b79aec; }
@@ -88,6 +89,10 @@
     #chip { display: none; align-items: center; gap: 8px; margin: 0 14px 4px; padding: 7px 12px; background: #1e1533; border: 1px solid #2a2140; border-radius: 8px; font-size: 12.5px; color: #b79aec; }
     #chip.show { display: flex; }
     #chip button { margin-left: auto; background: none; border: 0; color: #ff9aa8; font-size: 14px; cursor: pointer; padding: 2px 6px; }
+
+    /* CSS PRO TIPS (github.com/AllThingsSmitty/css-protips) */
+    button, a, input, select, textarea, [role="button"] { touch-action: manipulation; }
+    html, body { overscroll-behavior-y: contain; }
   </style>
 </head>
 <body>
@@ -170,7 +175,7 @@
 
     let history = [];
     let selected = JSON.parse(localStorage.getItem("time-bots") || '["inclusionai/ling-3.2-flash:free","baidu/ernie-5.5-flash-preview:free"]');
-    let busy = false, stopFlag = false;
+    let busy = false, abortCtrl = null;
 
     if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/legacy/build/pdf.worker.min.js";
 
@@ -311,7 +316,7 @@
       if (selected.length < 2) { toast("Escolhe pelo menos 2 IAs pro time!"); return; }
       showSetup(false);
     };
-    $("cfgBtn").onclick = () => { $("keyInput").value = getKey() || ""; renderBotList(); showSetup(true); };
+    $("cfgBtn").onclick = () => { $("keyInput").value = getKey() || ""; $("geminiInput").value = localStorage.getItem("gemini-key") || ""; renderBotList(); showSetup(true); };
     $("clearBtn").onclick = async () => {
       if (!(await askModal("Apagar TODA a memória das conversas? O time esquece tudo.", { input: false, okText: "Apagar tudo" }))) return;
       history = [];
@@ -374,6 +379,7 @@
       });
       if (history.length) $("chat").scrollTop = $("chat").scrollHeight;
       if (researchOn()) $("webBtn").classList.add("on");
+      if (getKey() && selected.length >= 2) showSetup(false);
     }
     function save() {
       const h = history.slice(-200);
@@ -397,7 +403,8 @@
         role: "system",
         content: "Você é " + botName + ", parte do TIME de assistentes pessoais do usuário, junto com outras IAs. Papel do time: ajudar o usuário com treino de academia (foco principal), dieta e qualquer assunto da vida dele. Seu estilo: " + BOTS.find((b) => b.id === botId)?.desc + ". REGRAS: 1) Dê DICAS PRÁTICAS ao usuário, nunca converse com as outras IAs por diversão — elas são colegas de trabalho. 2) Você vê tudo que o usuário já falou antes, inclusive de conversas antigas: use isso pra lembrar dos objetivos dele. 3) Complemente o que os colegas disseram, sem repetir; se discordar, diga o porquê. 4) Seja CURTO: 1 a 5 frases (ou lista curta). 5) Se pedirem treino, especifique exercícios, séries e repetições. 6) Português brasileiro informal. 7) Se o assunto for saúde séria, recomende um profissional.",
       }];
-      for (const m of history) {
+      const recent = history.slice(-30);
+      for (const m of recent) {
         if (m.kind === "user") msgs.push({ role: "user", content: m.content });
         else if (m.kind === "image") msgs.push({ role: "user", content: "[Você gerou uma imagem: " + m.content + "]" });
         else if (m.name === botName) msgs.push({ role: "assistant", content: m.content });
@@ -406,10 +413,12 @@
       return msgs;
     }
 
-    async function callBot(bot, bubble) {
+    async function callBot(bot, bubble, signal) {
       const model = bot.id + (researchOn() ? ":online" : "");
+      const bodyEl = bubble.querySelector(".body");
       const res = await fetch(API, {
         method: "POST",
+        signal,
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + getKey() },
         body: JSON.stringify({ model, messages: messagesFor(bot.id, bot.name), stream: true }),
       });
@@ -436,7 +445,7 @@
           } catch {}
         }
         if (full) {
-          bubble.textContent = full;
+          bodyEl.textContent = full;
           $("chat").scrollTop = $("chat").scrollHeight;
         }
       }
@@ -446,32 +455,46 @@
 
     async function runTurns() {
       if (busy) return;
-      busy = true; stopFlag = false;
-      $("send").disabled = true;
+      busy = true;
+      abortCtrl = new AbortController();
+      $("send").textContent = "⏹️";
+      $("send").classList.add("stop");
+
       for (const id of selected) {
-        if (stopFlag) break;
+        if (abortCtrl.signal.aborted) break;
         const bot = BOTS.find((b) => b.id === id);
         if (!bot) continue;
         const bubble = addMsg("bot typing", bot.name, "pensando...", bot.color);
+        const bodyEl = bubble.querySelector(".body");
         try {
-          const full = await callBot(bot, bubble);
+          const full = await callBot(bot, bubble, abortCtrl.signal);
           bubble.classList.remove("typing");
           history.push({ kind: "bot", name: bot.name, content: full, color: bot.color });
           save();
         } catch (err) {
           bubble.classList.remove("typing");
+          if (err.name === "AbortError") {
+            bodyEl.textContent = (bodyEl.textContent === "pensando..." ? "(interrompido)" : bodyEl.textContent + " [parado]");
+            break;
+          }
           bubble.classList.add("error");
-          bubble.textContent = err.message;
+          bodyEl.textContent = err.message;
         }
       }
       busy = false;
-      $("send").disabled = false;
+      abortCtrl = null;
+      $("send").textContent = "➤";
+      $("send").classList.remove("stop");
     }
 
     $("form").addEventListener("submit", (e) => {
       e.preventDefault();
+      if (busy) {
+        if (abortCtrl) abortCtrl.abort();
+        return;
+      }
       const text = $("input").value.trim();
-      if (!text || busy) return;
+      if (!text) return;
       $("input").value = "";
       let content = text;
       let display = text;
