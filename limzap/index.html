@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="description" content="Limpe o celular inteiro pelo navegador: mídia do WhatsApp, arquivos de lixo, duplicados e arquivos grandes. Offline, sem anúncios." />
+<meta name="theme-color" content="#075e54" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<title>Limpa ZAP — limpa o celular</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #0a1a10; color: #eaf5ee; font-family: system-ui, sans-serif;
+    min-height: 100dvh; overflow-x: hidden;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+  button { font-family: inherit; cursor: pointer; }
+  header {
+    display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+    background: linear-gradient(#075e54, #0a1a10 130%);
+  }
+  header .logo { font-size: 26px; }
+  header h1 { font-size: 19px; margin: 0; flex: 1; font-weight: 800; }
+  header h1 span { color: #25d366; }
+  header .v { font-size: 10px; color: #6e8878; }
+
+  #intro { padding: 10px 18px 4px; }
+  #intro p { color: #9dbcaa; font-size: 14px; line-height: 1.6; margin: 0 0 14px; }
+  #btnPick, #btnBig {
+    width: 100%; padding: 15px; border: 0; border-radius: 14px;
+    background: #25d366; color: #06240f; font-size: 16px; font-weight: 800;
+  }
+  #btnBig { background: #12331f; color: #25d366; font-size: 14px; margin-top: 10px; }
+  .hint { font-size: 12px; color: #6e8878; margin-top: 12px; line-height: 1.7; }
+  .hint b { color: #25d366; }
+
+  #bar { display: none; padding: 12px 18px 0; font-size: 13px; color: #9dbcaa; }
+  #bar.on { display: block; }
+  #barPath { color: #eaf5ee; font-weight: 700; word-break: break-all; }
+  #btnTrocar { background: none; border: 1px solid #2a4d3a; color: #9dbcaa; font-size: 12px; border-radius: 8px; padding: 6px 12px; margin-top: 8px; }
+
+  #resumo { display: none; margin: 12px 16px 0; background: #10281a; border: 1px solid #1f4732; border-radius: 14px; padding: 14px 16px; }
+  #resumo.on { display: block; }
+  #resTotal { font-size: 24px; font-weight: 900; color: #25d366; }
+  #resSub { font-size: 12.5px; color: #9dbcaa; margin-top: 2px; }
+
+  /* painel de lixo */
+  #limpeza { display: none; margin: 12px 16px 0; background: #2a1a10; border: 1px solid #4d3a1f; border-radius: 14px; padding: 14px 16px; }
+  #limpeza.on { display: block; }
+  #limpeza h3 { margin: 0 0 8px; font-size: 15px; }
+  #limpeza .l { font-size: 12.5px; color: #d9b58a; margin: 4px 0; display: flex; justify-content: space-between; }
+  #limTotal { color: #ffd75e; font-weight: 800; }
+  #btnLimpaTudo {
+    width: 100%; margin-top: 10px; padding: 13px; border: 0; border-radius: 12px;
+    background: #ffd75e; color: #3a2a06; font-size: 15px; font-weight: 900;
+  }
+
+  #cats { display: none; }
+  #cats.on { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 16px; }
+  .cat { background: #10281a; border: 1px solid #1f4732; border-radius: 12px; padding: 12px; text-align: left; color: #eaf5ee; display: flex; align-items: center; gap: 10px; }
+  .cat:active { background: #163425; }
+  .cat.sel { border-color: #25d366; background: #163425; }
+  .cat .em { font-size: 24px; }
+  .cat .t { font-weight: 700; font-size: 14px; }
+  .cat .s { font-size: 12px; color: #9dbcaa; }
+
+  #maiores { display: none; margin: 14px 16px 0; background: #10281a; border: 1px solid #1f4732; border-radius: 14px; padding: 12px 14px; }
+  #maiores.on { display: block; }
+  #maiores h3 { margin: 0 0 8px; font-size: 14px; }
+  .bigRow { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 7px 4px; border-bottom: 1px solid #16321f; color: #cfe4d6; }
+  .bigRow:last-child { border-bottom: 0; }
+  .bigRow .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bigRow .sz { color: #ffd75e; font-weight: 700; }
+  .bigRow button { background: #12331f; border: 1px solid #2a4d3a; color: #9dbcaa; border-radius: 7px; padding: 5px 9px; font-size: 11px; }
+
+  #dups { display: none; margin: 14px 16px 0; }
+  #dups.on { display: block; }
+  #dups h3 { font-size: 15px; margin: 0 0 8px; }
+  .dupRow { background: #10281a; border: 1px solid #1f4732; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 12.5px; color: #9dbcaa; }
+  .dupRow b { color: #ffd75e; }
+  .dupRow button { background: #d33b52; border: 0; color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 700; margin-top: 8px; }
+
+  #grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin: 14px 16px; }
+  .item { position: relative; background: #10281a; border-radius: 10px; overflow: hidden; border: 2px solid transparent; cursor: pointer; }
+  .item.sel { border-color: #d33b52; }
+  .item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  .item .sem { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 30px; }
+  .item .nm { font-size: 10px; padding: 5px 6px; color: #9dbcaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .sz { font-size: 10px; padding: 0 6px 5px; color: #6e8878; }
+  .item .mk { position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+  .item.junk { border-color: #4d3a1f; }
+  .item.junk .mk { background: #7a5a20; }
+  .item.grpHead { grid-column: 1 / -1; background: #163425; padding: 8px 10px; font-size: 12px; color: #9dbcaa; display: block; }
+
+  #acoes { display: none; margin: 0 16px 8px; gap: 10px; }
+  #acoes.on { display: flex; }
+  #acoes button { flex: 1; padding: 13px; border: 0; border-radius: 12px; font-weight: 800; font-size: 13px; }
+  #btnSelCat { background: #12331f; color: #25d366; }
+  #btnLimpaGrade { background: #7a5a20; color: #fff; }
+
+  #rodape { position: fixed; left: 0; right: 0; bottom: 0; background: #0d2417; border-top: 1px solid #1f4732; display: none; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); gap: 10px; align-items: center; z-index: 20; }
+  #rodape.on { display: flex; }
+  #selInfo { flex: 1; font-size: 13px; }
+  #selInfo b { color: #d3665e; display: block; font-size: 15px; }
+  #btnLixeira { padding: 12px 18px; border: 0; border-radius: 10px; background: #d33b52; color: #fff; font-weight: 800; font-size: 14px; }
+
+  #toast { position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: #25d366; color: #06240f; font-weight: 800; font-size: 13px; padding: 10px 18px; border-radius: 20px; opacity: 0; transition: all .25s; z-index: 50; white-space: nowrap; pointer-events: none; }
+  #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #prog { margin: 12px 16px 0; font-size: 13px; color: #9dbcaa; display: none; }
+  #prog.on { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🧹</div>
+  <h1>Limpa <span>ZAP</span> <span class="v" id="ver">v2</span></h1>
+</header>
+
+<section id="intro">
+  <p>Espaço cheio? 🐃 Agora o Limpa ZAP limpa <b>o celular inteiro</b>: a mídia do WhatsApp, arquivos de lixo de app, duplicados e os arquivos gigantes que ninguém lembra de ter baixado. Tudo offline, seus arquivos não saem do aparelho.</p>
+  <button id="btnPick">🧹 Escolher pasta p/ limpar</button>
+  <button id="btnBig">📁 Whatsapp Media (caminho pronto)</button>
+  <div class="hint">
+    <b>Celular:</b> toque em "Escolher pasta" → 3 pontinhos no seletor → <b>mostrar armazenamento interno</b> → navegue até<br />
+    <b>Android/media/com.whatsapp/WhatsApp/Media</b><br />
+    ou escolha <b>Download</b>, <b>Pictures</b> ou a raiz pra limpar geral.<br />
+    Se pedir permissão, autorize. No PC, use <b>Chrome ou Brave</b>.
+  </div>
+</section>
+
+<div id="bar"><span id="barPath"></span><br /><button id="btnTrocar">Trocar pasta</button></div>
+
+<div id="resumo"><div id="resTotal">0 B</div><div id="resSub"></div></div>
+<div id="prog"></div>
+
+<div id="limpeza">
+  <h3>👋 O que dá pra limpar sem medo:</h3>
+  <div id="limList"></div>
+  <button id="btnLimpaTudo">🪄 LIMPAR TUDO ISSO</button>
+</div>
+
+<div id="cats"></div>
+<div id="acoes">
+  <button id="btnSelCat">Antigos + grandes</button>
+  <button id="btnLimpaGrade">Marcar lixo</button>
+</div>
+
+<div id="maiores"><h3>🪨 Os 20 maiores arquivos</h3><div id="bigList"></div></div>
+
+<div id="dups"><h3>♻️ Duplicados achados</h3><div id="dupList"></div></div>
+
+<div id="grade"></div>
+
+<div id="rodape">
+  <div id="selInfo"><b>0 arquivos</b>0 B liberados</div>
+  <button id="btnLixeira">🗑 Apagar</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+const $ = (id) => document.getElementById(id);
+const toast = (t) => { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), 2400); };
+const fmtB = (b) => { if (b > 1e9) return (b/1e9).toFixed(2).replace(".", ",") + " GB"; if (b > 1e6) return (b/1e6).toFixed(1).replace(".", ",") + " MB"; if (b > 1e3) return Math.round(b/1e3) + " KB"; return b + " B"; };
+
+const VER = "limzap-v2";
+const CATS = [
+  { key: "image",    em: "🖼️", n: "Imagens",    m: ["image/"] },
+  { key: "video",    em: "🎬", n: "Vídeos",     m: ["video/"] },
+  { key: "audio",    em: "🎵", n: "Áudios",     m: ["audio/"] },
+  { key: "sticker",  em: "🐸", n: "Figurinhas", m: ["image/webp"], dir: "stickers" },
+  { key: "document", em: "📄", n: "Documentos", m: ["application/", "text/"] },
+  { key: "other",    em: "📦", n: "Outros",     m: [] },
+];
+
+/* ---------- regras de lixo ---------- */
+const JUNK_DIR = /(^|[\/\\])(cache|\.cache|thumbnails|\.thumbnails|\.trashed|\.trash|files\/\.tmp|tmp|temp|recent)([\/\\]|$)/i;
+const JUNK_FILE = /(\.tmp$|\.temp$|\.log$|thumbs\.db$|\.ds_store$|\.nomedia$|cache_|\-cache|\.crdownload$|\.part$)/i;
+
+const isJunk = (f) => f.junkDir || JUNK_FILE.test(f.name);
+
+let root = null, rootPath = [];
+let files = [];      // {handle, file, name, size, mtime, cat, path, junkDir}
+let sel = new Set(); // path marcado
+let filtro = null;
+
+function catOf(mime, path) {
+  mime = (mime || "").toLowerCase();
+  if (/\/stickers\//.test(path)) return "sticker";
+  if (mime === "image/webp" && /\/stickers\//.test(path)) return "sticker";
+  const c = CATS.find((c) => c.m.some((m) => mime.startsWith(m)));
+  return c ? c.key : "other";
+}
+
+async function scanImpl(dir, path, results, prog, depth, junkDir) {
+  if (depth > 6 || prog.n >= 6000) return;
+  for await (const entry of dir.values()) {
+    try {
+      if (entry.kind === "directory") {
+        const jl = JUNK_DIR.test((path + "/" + entry.name).toLowerCase());
+        await scanImpl(entry, path + "/" + entry.name, results, prog, depth + 1, junkDir || jl);
+      } else {
+        const h = await dir.getFileHandle(entry.name);
+        const f = await h.getFile();
+        results.push({
+          handle: h, file: f, name: entry.name, size: f.size, mtime: f.lastModified,
+          cat: catOf(f.type, path), path: path + "/" + entry.name, junkDir,
+        });
+        prog.n++;
+        if (prog.n % 40 === 0) $("prog").textContent = "Escaneando... " + prog.n + " arquivos";
+      }
+    } catch {}
+  }
+}
+
+function limparRegras() {
+  // regras seguras: lixo de sistema/cache + antigos grandes de mídia
+  const lixo = files.filter((f) => isJunk(f));
+  const velhosGrandes = files.filter((f) => {
+    if (isJunk(f)) return false;
+    const velho = (Date.now() - f.mtime) > 60 * 864e5; // 60 dias
+    const grande = f.size > 30 * 1e6; // >30MB
+    return velho && grande;
+  });
+  const dups = duplicados();
+  return { lixo, velhosGrandes, dups };
+}
+
+function duplicados() {
+  const groups = {};
+  files.forEach((f) => {
+    const m = f.name.match(/^(.*?)\s*\((\d+)\)(\.[^.]+)$/i);
+    if (m) {
+      const k = (m[1] + m[3]).toLowerCase();
+      (groups[k] = groups[k] || []).push(f);
+    }
+  });
+  // só considerar grupo se os arquivos têm mesmo tamanho E nomes iguais (mesma base)
+  return Object.values(groups).filter((g) => new Set(g.map((f) => f.size + "|" + f.path.replace(/[^\/]*$/, ""))).size >= 1).flatMap((g) => g);
+}
+
+function renderLimpeza() {
+  const r = limparRegras();
+  const box = $("limpeza");
+  const total = [...r.lixo, ...r.velhosGrandes, ...r.dups].reduce((set, f) => set.add(f.path), new Set());
+  let bytes = 0;
+  totalB: {
+    bytes = 0;
+    const seen = new Set();
+    [...r.lixo, ...r.velhosGrandes, ...r.dups].forEach((f) => { if (!seen.has(f.path)) { seen.add(f.path); bytes += f.size; } });
+  }
+  const lista = $("limList");
+  lista.innerHTML = "";
+  const row = (txt, n, b) => {
+    const d = document.createElement("div"); d.className = "l";
+    d.innerHTML = "<span>" + txt + " (" + n + ")</span><span>" + fmtB(b) + "</span>";
+    lista.appendChild(d);
+  };
+  const sum = (fs2) => fs2.reduce((a, f) => a + f.size, 0);
+  row("🗑️ Lixo de cache/temp", r.lixo.length, sum(r.lixo));
+  row("⏱️ Mídia antiga +60d e >30MB", r.velhosGrandes.length, sum(r.velhosGrandes));
+  row("♻️ Duplicados", r.dups.length, sum(r.dups));
+  $("limTotal").textContent = fmtB(bytes) + " liberáveis";
+  box.classList.toggle("on", total.size > 0);
+  box._paths = total;
+  box._bytes = bytes;
+}
+
+$("btnLimpaTudo").onclick = () => {
+  const b = $("limpeza");
+  const n = b._paths.size;
+  if (!n) return;
+  if (!confirm("Vou marcar " + n + " arquivos (" + fmtB(b._bytes) + ") pra apagar.\nIsso NÃO volta atrás. Confere na grade antes de apagar. Continuar?")) return;
+  b._paths.forEach((p) => sel.add(p));
+  filtro = null; document.querySelectorAll(".cat").forEach((c) => c.classList.remove("sel"));
+  renderGrade(); paint();
+  toast(n + " marcados — confere e apaga 🗑");
+};
+
+function renderCats() {
+  const box = $("cats"); box.classList.add("on"); box.innerHTML = "";
+  const byCat = {};
+  files.forEach((f) => { (byCat[f.cat] = byCat[f.cat] || { n: 0, b: 0 }); byCat[f.cat].n++; byCat[f.cat].b += f.size; });
+  CATS.forEach((c) => {
+    const s = byCat[c.key] || { n: 0, b: 0 };
+    if (!s.n) return;
+    const d = document.createElement("button");
+    d.className = "cat" + (filtro === c.key ? " sel" : "");
+    d.innerHTML = '<span class="em">' + c.em + '</span><span><div class="t">' + c.n + '</div><div class="s">' + s.n + " • " + fmtB(s.b) + '</div></span>';
+    d.onclick = () => { filtro = filtro === c.key ? null : c.key; renderCats(); renderGrade(); };
+    box.appendChild(d);
+  });
+  $("acoes").classList.toggle("on", files.length > 0);
+}
+
+function renderBig() {
+  const box = $("maiores");
+  if (files.length < 3) { box.classList.remove("on"); return; }
+  box.classList.add("on");
+  const list = files.slice().sort((a, b) => b.size - a.size).slice(0, 20);
+  const cont = $("bigList"); cont.innerHTML = "";
+  list.forEach((f) => {
+    const r = document.createElement("div"); r.className = "bigRow";
+    const em = f.cat === "video" ? "🎬" : f.cat === "image" ? "🖼️" : f.cat === "audio" ? "🎵" : "📄";
+    r.innerHTML = '<span>' + em + '</span><span class="nm">' + f.name.replace(/^.*[\/]/, "") + '</span><span class="sz">' + fmtB(f.size) + '</span>';
+    const b = document.createElement("button");
+    b.textContent = sel.has(f.path) ? "✓" : "Marcar";
+    b.onclick = () => { sel.has(f.path) ? sel.delete(f.path) : sel.add(f.path); renderBig(); renderGrade(); paint(); };
+    r.appendChild(b);
+    cont.appendChild(r);
+  });
+}
+
+function renderDups() {
+  const dups = duplicados();
+  const box = $("dups");
+  if (!dups.length) { box.classList.remove("on"); return; }
+  box.classList.add("on");
+  const list = $("dupList"); list.innerHTML = "";
+  const seen = new Set();
+  dups.forEach((g0) => {
+    const key = g0[0].name.replace(/\s*\(\d+\)/, "");
+    if (seen.has(key)) return; seen.add(key);
+    let tot = 0; g0.forEach((f) => tot += f.size);
+    const r = document.createElement("div");
+    r.className = "dupRow";
+    r.innerHTML = "<div>" + g0.length + ' x <b>"' + key + '"</b> — ' + fmtB(tot) + "</div>";
+    const b = document.createElement("button");
+    b.textContent = "Marcar p/ apagar";
+    b.onclick = () => { g0.forEach((f) => sel.add(f.path)); renderGrade(); paint(); toast("Duplicados marcados ♻️"); };
+    r.appendChild(b);
+    list.appendChild(r);
+  });
+}
+
+function renderGrade() {
+  const grade = $("grade"); grade.innerHTML = "";
+  let list = files;
+  if (filtro) list = list.filter((f) => f.cat === filtro);
+  list.sort((a, b) => (b.junkDir || isJunk(b)) - (a.junkDir || isJunk(a)) || b.mtime - a.mtime);
+  if (!list.length) { grade.innerHTML = '<p style="grid-column:1/-1;color:#6e8878;font-size:13px">Nada aqui.</p>'; return; }
+  let day = "";
+  list.forEach((f) => {
+    const junk = f.junkDir || isJunk(f);
+    const d = junk ? "🗑️ LIXO DE APP/SISTEMA" + (f.junkDir ? " (pasta de cache)" : "") : new Date(f.mtime).toLocaleDateString("pt-BR");
+    if (d !== day) { day = d; const h = document.createElement("div"); h.className = "item grpHead"; h.textContent = day; grade.appendChild(h); }
+    const it = document.createElement("div");
+    it.className = "item" + (sel.has(f.path) ? " sel" : "") + (junk ? " junk" : "");
+    const mid = document.createElement("div");
+    if (f.cat === "image" || f.cat === "sticker") {
+      const img = document.createElement("img");
+      img.loading = "lazy";
+      img.src = URL.createObjectURL(f.file);
+      mid.appendChild(img);
+    } else {
+      mid.className = "sem";
+      mid.textContent = f.cat === "video" ? "🎬" : f.cat === "audio" ? "🎵" : f.cat === "document" ? "📄" : "📦";
+    }
+    const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = junk ? "🪣 " + f.name : f.name;
+    const sz = document.createElement("div"); sz.className = "sz"; sz.textContent = fmtB(f.size);
+    const mk = document.createElement("div"); mk.className = "mk"; mk.textContent = sel.has(f.path) ? "✓" : "";
+    it.append(mid, nm, sz, mk);
+    it.onclick = () => { sel.has(f.path) ? sel.delete(f.path) : sel.add(f.path); renderGrade(); paint(); renderBig(); };
+    grade.appendChild(it);
+  });
+}
+
+function paint() {
+  const selF = files.filter((f) => sel.has(f.path));
+  const bytes = selF.reduce((a, f) => a + f.size, 0);
+  $("selInfo").innerHTML = "<b>" + selF.length + " arquivos</b>" + fmtB(bytes) + " liberados";
+  $("rodape").classList.toggle("on", selF.length > 0);
+  $("resumo").classList.add("on");
+  const tot = files.reduce((a, f) => a + f.size, 0);
+  $("resTotal").textContent = fmtB(tot);
+  $("resSub").textContent = files.length + " arquivos • " + (root ? root.name : "");
+}
+
+async function apagarSelecao() {
+  const alvo = files.filter((f) => sel.has(f.path));
+  if (!alvo.length) return;
+  if (!confirm("Apagar " + alvo.length + " arquivos pra sempre? (não vai pra lixeira)")) return;
+  let ok = 0, bytes = 0;
+  const dirs = new Map();
+  for (const f of alvo) {
+    try {
+      const parts = f.path.split("/"); parts.pop();
+      const dPath = parts.join("/");
+      let d = dirs.get(dPath);
+      if (!d) {
+        let cur = root;
+        for (let i = 1; i < parts.length; i++) cur = await cur.getDirectoryHandle(parts[i]);
+        d = cur; dirs.set(dPath, d);
+      }
+      await d.removeEntry(f.name);
+      ok++; bytes += f.size;
+    } catch {}
+  }
+  files = files.filter((f) => !sel.has(f.path));
+  sel.clear();
+  renderCats(); renderBig(); renderDups(); renderGrade(); renderLimpeza(); paint();
+  toast("Limpo! " + fmtB(bytes) + " liberados 🧹✨");
+}
+
+async function abrePasta() {
+  if (!window.showDirectoryPicker) { toast("Use Chrome ou Brave 😕"); return; }
+  try {
+    root = await window.showDirectoryPicker();
+    await botar(root);
+  } catch {}
+}
+
+async function botar(dirHandle) {
+  files = []; sel.clear();
+  $("bar").classList.add("on");
+  $("barPath").textContent = "📂 " + dirHandle.name;
+  $("prog").classList.add("on");
+  $("prog").textContent = "Escaneando...";
+  const prog = { n: 0 };
+  await scanImpl(dirHandle, dirHandle.name, files, prog, 1, false);
+  $("prog").classList.remove("on");
+  const tot = files.reduce((a, f) => a + f.size, 0);
+  toast(files.length + " arquivos • " + fmtB(tot));
+  renderCats(); renderBig(); renderDups(); renderGrade(); renderLimpeza(); paint();
+}
+
+$("btnPick").onclick = abrePasta;
+$("btnBig").onclick = abrePasta;
+$("btnTrocar").onclick = abrePasta;
+$("btnSelCat").onclick = () => {
+  const marc = files.filter((f) => {
+    if (filtro && f.cat !== filtro) return false;
+    return (Date.now() - f.mtime) > 30 * 864e5 || f.size > 5 * 1e6;
+  });
+  marc.forEach((f) => sel.add(f.path));
+  renderGrade(); paint();
+  toast(marc.length + " marcados (antigos + grandes)");
+};
+$("btnLimpaGrade").onclick = () => {
+  const marc = files.filter((f) => isJunk(f));
+  marc.forEach((f) => sel.add(f.path));
+  renderGrade(); paint();
+  toast(marc.length + " arquivos de lixo marcados 🪣");
+};
+$("btnLixeira").onclick = apagarSelecao;
+$("ver").textContent = VER;
+</script>
+</body>
+</html>
