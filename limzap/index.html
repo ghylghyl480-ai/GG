@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Limpa ZAP</title>
+<meta name="description" content="Limpe as mídias do WhatsApp pelo navegador: veja por categoria, ache duplicados e libere espaço. Offline e sem anúncios." />
+<meta name="theme-color" content="#075e54" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #0a1a10; color: #eaf5ee; font-family: system-ui, sans-serif;
+    min-height: 100dvh; overflow-x: hidden;
+    padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  }
+  button { font-family: inherit; cursor: pointer; }
+  header {
+    display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+    background: linear-gradient(#075e54, #0a1a10 130%);
+  }
+  header .logo { font-size: 26px; }
+  header h1 { font-size: 19px; margin: 0; flex: 1; font-weight: 800; }
+  header h1 span { color: #25d366; }
+
+  #intro { padding: 10px 18px 4px; }
+  #intro p { color: #9dbcaa; font-size: 14px; line-height: 1.6; margin: 0 0 14px; }
+  #btnPick, #btnBig {
+    width: 100%; padding: 15px; border: 0; border-radius: 14px;
+    background: #25d366; color: #06240f; font-size: 16px; font-weight: 800;
+  }
+  #btnBig { background: #12331f; color: #25d366; font-size: 14px; margin-top: 10px; }
+  .hint { font-size: 12px; color: #6e8878; margin-top: 12px; line-height: 1.6; }
+  .hint b { color: #25d366; }
+
+  #bar { display: none; padding: 12px 18px 0; font-size: 13px; color: #9dbcaa; }
+  #bar.on { display: block; }
+  #barPath { color: #eaf5ee; font-weight: 700; word-break: break-all; }
+  #btnTrocar {
+    background: none; border: 1px solid #2a4d3a; color: #9dbcaa; font-size: 12px;
+    border-radius: 8px; padding: 6px 12px; margin-top: 8px;
+  }
+
+  #resumo {
+    display: none; margin: 12px 16px 0; background: #10281a; border: 1px solid #1f4732;
+    border-radius: 14px; padding: 14px 16px;
+  }
+  #resumo.on { display: block; }
+  #resTotal { font-size: 24px; font-weight: 900; color: #25d366; }
+  #resSub { font-size: 12.5px; color: #9dbcaa; margin-top: 2px; }
+
+  .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 16px; }
+  .cat {
+    background: #10281a; border: 1px solid #1f4732; border-radius: 12px; padding: 12px;
+    text-align: left; color: #eaf5ee; display: flex; align-items: center; gap: 10px;
+  }
+  .cat:active { background: #163425; }
+  .cat.sel { border-color: #25d366; background: #163425; }
+  .cat .em { font-size: 24px; }
+  .cat .t { font-weight: 700; font-size: 14px; }
+  .cat .s { font-size: 12px; color: #9dbcaa; }
+  .cat input { accent-color: #25d366; width: 18px; height: 18px; }
+
+  #acoes { display: none; margin: 0 16px; gap: 10px; }
+  #acoes.on { display: flex; }
+  #acoes button { flex: 1; padding: 13px; border: 0; border-radius: 12px; font-weight: 800; font-size: 14px; }
+  #btnSelCat { background: #12331f; color: #25d366; }
+  #btnApagar { background: #d33b52; color: #fff; }
+
+  #dups { display: none; margin: 14px 16px 0; }
+  #dups.on { display: block; }
+  #dups h3 { font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+  .dupRow {
+    background: #10281a; border: 1px solid #1f4732; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px; font-size: 12.5px; color: #9dbcaa;
+  }
+  .dupRow b { color: #ffd75e; }
+  .dupRow button {
+    background: #d33b52; border: 0; color: #fff; border-radius: 8px;
+    padding: 8px 14px; font-size: 12px; font-weight: 700; margin-top: 8px;
+  }
+
+  #grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin: 14px 16px; }
+  .item { position: relative; background: #10281a; border-radius: 10px; overflow: hidden; border: 2px solid transparent; cursor: pointer; }
+  .item.sel { border-color: #d33b52; }
+  .item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  .item .sem { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 30px; }
+  .item .nm { font-size: 10px; padding: 5px 6px; color: #9dbcaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .sz { font-size: 10px; padding: 0 6px 5px; color: #6e8878; }
+  .item .mk {
+    position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(0,0,0,.55); color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center;
+  }
+  .item.sel .mk { background: #d33b52; }
+  .item.grpHead { grid-column: 1 / -1; background: #163425; padding: 8px 10px; font-size: 12px; color: #9dbcaa; display: block; }
+
+  #rodape {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: #0d2417; border-top: 1px solid #1f4732; display: none;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); gap: 10px; align-items: center; z-index: 20;
+  }
+  #rodape.on { display: flex; }
+  #selInfo { flex: 1; font-size: 13px; }
+  #selInfo b { color: #d3665e; display: block; font-size: 15px; }
+  #btnLixeira { padding: 12px 18px; border: 0; border-radius: 10px; background: #d33b52; color: #fff; font-weight: 800; font-size: 14px; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
+    background: #25d366; color: #06240f; font-weight: 800; font-size: 13px;
+    padding: 10px 18px; border-radius: 20px; opacity: 0; transition: all .25s; z-index: 50; white-space: nowrap; pointer-events: none;
+  }
+  #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #prog { margin: 12px 16px 0; font-size: 13px; color: #9dbcaa; display: none; }
+  #prog.on { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🧹</div>
+  <h1>Limpa <span>ZAP</span></h1>
+</header>
+
+<section id="intro">
+  <p>Espaço cheio por causa do WhatsApp? 🐃<br />
+  Escolha a pasta de mídia do WhatsApp e veja <b>tudo por categoria</b>: fotos, vídeos, áudios, figurinhas. Ache <b>duplicados</b>, marque os grandes/antigos e apague em lote — sem anúncio, sem Premium, e seus arquivos <b>não saem do aparelho</b>.</p>
+  <button id="btnPick">📂 Escolher pasta de mídia</button>
+  <button id="btnBig">🖥️ No PC: qualquer pasta (Downloads, etc.)</button>
+  <div class="hint">
+    <b>Celular:</b> toque em "Escolher pasta" e navegue até<br />
+    <b>Android/media/com.whatsapp/WhatsApp/Media</b><br />
+    (dica: no seletor, os 3 pontinhos ⇢ mostrar armazenamento interno)<br /><br />
+    Se o navegador pedir permissão, autorize. Sem pasta? Use o <b>Chrome ou Brave</b>.
+  </div>
+</section>
+
+<div id="bar"><span id="barPath"></span><br /><button id="btnTrocar">Trocar pasta</button></div>
+
+<div id="resumo"><div id="resTotal">0 B</div><div id="resSub"></div></div>
+<div id="prog"></div>
+
+<div class="cats" id="cats"></div>
+<div id="acoes">
+  <button id="btnSelCat">Marcar antigos + grandes</button>
+  <button id="btnApagar">Apagar marcadas</button>
+</div>
+
+<div id="dups"><h3>♻️ Duplicados achados</h3><div id="dupList"></div></div>
+
+<div id="grade"></div>
+
+<div id="rodape">
+  <div id="selInfo"><b>0 arquivos</b>0 B liberados</div>
+  <button id="btnLixeira">🗑 Apagar</button>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="hidden" style="display:none" />
+
+<script>
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+const $ = (id) => document.getElementById(id);
+const toast = (t) => { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), 2400); };
+const fmtB = (b) => { if (b > 1e9) return (b/1e9).toFixed(2).replace(".", ",") + " GB"; if (b > 1e6) return (b/1e6).toFixed(1).replace(".", ",") + " MB"; if (b > 1e3) return Math.round(b/1e3) + " KB"; return b + " B"; };
+
+const WASAP = ["Android/media/com.whatsapp", "WhatsApp/Media"];
+const CATS = [
+  { key: "image",     em: "🖼️", n: "Imagens",    m: ["image/"] },
+  { key: "video",     em: "🎬", n: "Vídeos",     m: ["video/"] },
+  { key: "audio",     em: "🎵", n: "Áudios",     m: ["audio/"] },
+  { key: "sticker",   em: "🐸", n: "Figurinhas", m: ["image/webp"], dir: "Stickers" },
+  { key: "document",  em: "📄", n: "Documentos", m: ["application/", "text/"] },
+  { key: "other",     em: "📦", n: "Outros",     m: [] },
+];
+
+let root = null, dirName = "";
+let files = [];            // {handle, name, size, mtime, cat, thumb}
+let sel = new Set();       // handle names marcados
+let filtro = null;         // categoria ativa
+
+const catOf = (f, path) => {
+  const p = path.toLowerCase();
+  if (p.includes("/stickers/")) return "sticker";
+  const c = CATS.find((c) => c.m.some((m) => f.startsWith(m)));
+  if (c && c.key !== "sticker") {
+    if (c.key === "image" && f === "image/webp" && !p.includes("/stickers/")) return "sticker";
+    return c.key;
+  }
+  return "other";
+};
+
+async function scan(dir, path, results, prog) {
+  for await (const entry of dir.values()) {
+    if (entry.kind === "directory") {
+      await scan(entry, path + "/" + entry.name, results, prog);
+    } else {
+      try {
+        const h = await dir.getFileHandle(entry.name);
+        const f = await h.getFile();
+        const cat = catOf(f.type || "", path);
+        results.push({ handle: h, file: f, name: entry.name, size: f.size, mtime: f.lastModified, cat, path });
+        prog.n++; if (prog.n % 25 === 0) {
+          $("prog").textContent = "Escaneando... " + prog.n + " arquivos (" + fmtB(prog.bytes += f.size) + ")";
+        }
+      } catch {}
+    }
+    if (prog.n > 4000) return; // segurança
+  }
+}
+
+function renderCats() {
+  const box = $("cats"); box.innerHTML = "";
+  const byCat = {};
+  files.forEach((f) => { (byCat[f.cat] = byCat[f.cat] || { n: 0, b: 0 }); byCat[f.cat].n++; byCat[f.cat].b += f.size; });
+  CATS.forEach((c) => {
+    const s = byCat[c.key] || { n: 0, b: 0 };
+    if (!s.n) return;
+    const d = document.createElement("button");
+    d.className = "cat" + (filtro === c.key ? " sel" : "");
+    d.innerHTML = '<span class="em">' + c.em + '</span><span><div class="t">' + c.n + '</div><div class="s">' + s.n + " • " + fmtB(s.b) + '</div></span>';
+    d.onclick = () => { filtro = filtro === c.key ? null : c.key; renderCats(); renderGrade(); };
+    box.appendChild(d);
+  });
+  if (filtro === null && !box.children.length) return;
+}
+
+function findDups(list) {
+  // padrão clássico de duplicados: "nome (1).ext", "nome (2).ext"...
+  const groups = {};
+  list.forEach((f) => {
+    const m = f.name.match(/^(.*?)\s*\((\d+)\)(\.[^.]+)$/i);
+    if (m) {
+      const k = (m[1] + m[3]).toLowerCase() + "|" + (f.size>0? "x":"");
+      (groups[k] = groups[k] || { apagar: [], bytes: 0 });
+      groups[k].apagar.push(f); groups[k].bytes += f.size;
+    }
+  });
+  return Object.values(groups).filter((g) => g.apagar.length);
+}
+
+function renderDups() {
+  const dups = findDups(files);
+  const box = $("dups");
+  if (!dups.length) { box.classList.remove("on"); return; }
+  box.classList.add("on");
+  const list = $("dupList"); list.innerHTML = "";
+  dups.slice(0, 30).forEach((g) => {
+    const r = document.createElement("div");
+    r.className = "dupRow";
+    let tot = 0; g.apagar.forEach((f) => tot += f.size);
+    r.innerHTML = "<div>" + g.apagar.length + ' x <b>"' + g.apagar[0].name.replace(/\s*\(\d+\)/, "") + '"</b> — ' + fmtB(tot) + " desperdiçados</div>";
+    const b = document.createElement("button");
+    b.textContent = "Marcar p/ apagar";
+    b.onclick = () => { g.apagar.forEach((f) => sel.add(f.path)); paint(); toast("Duplicados marcados ♻️"); };
+    r.appendChild(b);
+    list.appendChild(r);
+  });
+}
+
+function renderGrade() {
+  const grade = $("grade"); grade.innerHTML = "";
+  let list = files;
+  if (filtro) list = list.filter((f) => f.cat === filtro);
+  list.sort((a, b) => b.mtime - a.mtime);
+  if (!list.length) { grade.innerHTML = '<p style="grid-column:1/-1;color:#6e8878;font-size:13px">Nada aqui.</p>'; return; }
+
+  let day = "";
+  list.forEach((f) => {
+    const d = new Date(f.mtime).toLocaleDateString("pt-BR");
+    if (d !== day) { day = d; const h = document.createElement("div"); h.className = "item grpHead"; h.textContent = day; grade.appendChild(h); }
+    const it = document.createElement("div");
+    it.className = "item" + (sel.has(f.path) ? " sel" : "");
+    const mid = document.createElement("div");
+    if (f.cat === "image" || f.cat === "sticker") {
+      const img = document.createElement("img");
+      img.loading = "lazy";
+      img.src = URL.createObjectURL(f.file);
+      mid.appendChild(img);
+    } else {
+      mid.className = "sem";
+      mid.textContent = f.cat === "video" ? "🎬" : f.cat === "audio" ? "🎵" : f.cat === "document" ? "📄" : "📦";
+    }
+    const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = f.name;
+    const sz = document.createElement("div"); sz.className = "sz"; sz.textContent = fmtB(f.size);
+    const mk = document.createElement("div"); mk.className = "mk"; mk.textContent = sel.has(f.path) ? "✓" : "";
+    it.append(mid, nm, sz, mk);
+    it.onclick = () => { sel.has(f.path) ? sel.delete(f.path) : sel.add(f.path); renderGrade(); paint(); };
+    grade.appendChild(it);
+  });
+}
+
+function paint() {
+  const selF = files.filter((f) => sel.has(f.path));
+  const bytes = selF.reduce((a, f) => a + f.size, 0);
+  $("selInfo").innerHTML = "<b>" + selF.length + " arquivos</b>" + fmtB(bytes) + " liberados";
+  $("rodape").classList.toggle("on", selF.length > 0);
+  $("resumo").classList.add("on");
+  const tot = files.reduce((a, f) => a + f.size, 0);
+  $("resTotal").textContent = fmtB(tot);
+  $("resSub").textContent = files.length + " arquivos escaneados";
+  const btn = $("btnLixeira");
+  btn.disabled = false;
+  btn.textContent = "🗑 Apagar";
+}
+
+async function apagarSelecao() {
+  const alvo = files.filter((f) => sel.has(f.path));
+  if (!alvo.length) return;
+  if (!confirm("Apagar " + alvo.length + " arquivos? Isso não volte atrás (não vai pra lixeira do sistema).")) return;
+  let ok = 0, bytes = 0;
+  const dirs = new Map();
+  for (const f of alvo) {
+    try {
+      const parts = f.path.split("/"); parts.pop();
+      const dPath = parts.join("/");
+      let d = dirs.get(dPath);
+      if (!d) {
+        let cur = root;
+        for (const p of parts) cur = await cur.getDirectoryHandle(p);
+        d = cur; dirs.set(dPath, d);
+      }
+      await d.removeEntry(f.name);
+      ok++; bytes += f.size;
+    } catch {}
+  }
+  bookmarkSaved = bookmarkSaved; // noop
+  files = files.filter((f) => !sel.has(f.path));
+  sel.clear();
+  saveBookmark();
+  renderCats(); renderDups(); renderGrade(); paint();
+  toast("Freed! " + fmtB(bytes) + " liberados 🧹");
+}
+
+/* ---------- pasta / bookmark ---------- */
+let bookmarkSaved = false;
+async function saveBookmark() { /* placeholder p/ futuro: reabrir última pasta */ }
+
+async function abrePasta() {
+  if (!window.showDirectoryPicker) { toast("Use Chrome ou Brave no celular/PC 😕"); return; }
+  try {
+    root = await window.showDirectoryPicker();
+    dirName = root.name;
+    await botar(root);
+  } catch {}
+}
+
+async function botar(dirHandle) {
+  files = []; sel.clear();
+  $("bar").classList.add("on");
+  $("barPath").textContent = "📂 " + dirHandle.name;
+  $("prog").classList.add("on");
+  $("prog").textContent = "Escaneando...";
+  const prog = { n: 0, bytes: 0 };
+  await scan(dirHandle, dirHandle.name, files, prog);
+  $("prog").classList.remove("on");
+  $("resumo").classList.add("on");
+  renderCats(); renderDups(); renderGrade(); paint();
+  const tot = files.reduce((a, f) => a + f.size, 0);
+  toast(files.length + " arquivos • " + fmtB(tot));
+}
+
+$("btnPick").onclick = abrePasta;
+$("btnBig").onclick = abrePasta;
+$("btnTrocar").onclick = abrePasta;
+$("btnApagar").onclick = () => {
+  // marca antigos (>30 dias) + grandes (>5 MB) dentro do filtro atual (ou tudo)
+  const marc = files.filter((f) => {
+    if (filtro && f.cat !== filtro) return false;
+    const velho = (Date.now() - f.mtime) > 30 * 864e5;
+    const grande = f.size > 5 * 1e6;
+    return velho || grande;
+  });
+  marc.forEach((f) => sel.add(f.path));
+  renderGrade(); paint();
+  toast(marc.length + " marcados (antigos + grandes)");
+};
+$("btnSelCat").onclick = null;
+$("btnLixeira").onclick = apagarSelecao;
+</script>
+</body>
+</html>
